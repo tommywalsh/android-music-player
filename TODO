@@ -1,0 +1,19 @@
+1) Make simple library browser in UI
+2) Import music scanning code (can do brute-force whole-library scan for now)
+3) Serve up scanned bands using library API, verify using UI
+---
+4) Add database
+5) Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
+6) Add full-library shuffle playback
+---
+7) Create custom player UI with better controls
+8) Playback behaves differently for:
+    - DB uninitialized and idle
+    - DB partially initialized, initialization underway
+    - DB fully initialized and idle
+    - DB fully initialized, being rescanned  (potentially same as initialized/idle)
+---
+Keep adding missing features like locking, playback modes, etc.
+
+
+
