@@ -1,20 +1,31 @@
 package su.thepeople.musicplayer
 
+import android.content.ComponentName
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
 import android.view.Menu
 import android.view.MenuItem
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionToken
+import androidx.media3.ui.PlayerView
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    private lateinit var playerView: PlayerView
+    private lateinit var mediaSession: MediaSession
+    private var mediaController: MediaController? = null
+    private lateinit var controllerFuture: ListenableFuture<MediaController>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,16 +33,48 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.toolbar)
+        playerView = findViewById(R.id.player_view)
 
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
+        // TODO: move this to a service
+        val player = ExoPlayer.Builder(applicationContext).build()
+        mediaSession = MediaSession.Builder(applicationContext, player).build()
+        playerView.player = player
+    }
 
-        binding.fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+    override fun onStart() {
+        super.onStart()
+        val sessionToken = SessionToken(this, ComponentName(this, PlayerService::class.java))
+        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture.addListener(
+            {
+                mediaController?.release()
+                mediaController = controllerFuture.get()
+                playerView.player = mediaController
+
+                val path = "/storage/7F62-69AB/mcotp/Quarterflash/1981 Harden My Heart.mp3"
+                val mediaItem = MediaItem.Builder().setUri(path).build()
+                mediaController?.setMediaItem(mediaItem)
+                mediaController?.prepare()
+                mediaController?.play()
+
+            },
+            MoreExecutors.directExecutor()
+        )
+    }
+
+    override fun onStop() {
+        MediaController.releaseFuture(controllerFuture)
+        mediaController?.release()
+        mediaController = null
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        mediaSession.run {
+            player.release()
+            release()
         }
+        super.onDestroy()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
