@@ -8,27 +8,38 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import su.thepeople.musicplayer.databinding.ChooserItemBinding
 
-class ItemChooser(private val listView: RecyclerView, private val layoutInflater: LayoutInflater) {
+class ItemChooser(
+    private val libraryUI: LibraryFragment,
+    private val listView: RecyclerView,
+    private val breadcrumbView: RecyclerView,
+    private val layoutInflater: LayoutInflater,
+    private val browseAction: (MediaItem) -> Unit,  // TODO: Should this be MediaItem, or would String work fine?
+    private val breadcrumbAction: (MediaItem) -> Unit) {
+
+    private var items = ArrayList<MediaItem>()
 
     init {
         listView.setHasFixedSize(true)
         listView.layoutManager = LinearLayoutManager(listView.context)
-        listView.adapter = Adapter()
+        listView.adapter = Adapter(::handleUserSelection, items)
+        breadcrumbView.setHasFixedSize(true)
+        breadcrumbView.layoutManager = LinearLayoutManager(breadcrumbView.context)
+        breadcrumbView.adapter = Adapter(::handleUserBackup, libraryUI.breadcrumbStack)
     }
-
-    private var items: List<MediaItem> = ArrayList()
 
 
     fun refresh(newItems: List<MediaItem>) {
-        items = newItems
+        items.clear()
+        items.addAll(newItems)
         listView.adapter?.notifyDataSetChanged()
+        breadcrumbView.adapter?.notifyDataSetChanged()
     }
 
-    private inner class ButtonViewHolder(private val button: Button): RecyclerView.ViewHolder(button) {
+    private class ButtonViewHolder(private val button: Button, private val itemList: List<MediaItem>): RecyclerView.ViewHolder(button) {
 
         fun associateWithItem(itemPosition: Int) {
             button.tag = itemPosition
-            button.text = items[itemPosition].mediaMetadata.title ?: "Unknown"
+            button.text = itemList[itemPosition].mediaMetadata.title ?: "Unknown"
         }
 
         fun getItemIndex(): Int {
@@ -36,12 +47,12 @@ class ItemChooser(private val listView: RecyclerView, private val layoutInflater
         }
     }
 
-    private inner class Adapter: RecyclerView.Adapter<ItemChooser.ButtonViewHolder>() {
+    private inner class Adapter(val onClick: (Int) -> Unit, val itemList: List<MediaItem>): RecyclerView.Adapter<ButtonViewHolder>() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ButtonViewHolder {
             val binding = ChooserItemBinding.inflate(layoutInflater)
             val button = binding.root
-            val holder = ButtonViewHolder(button)
-            button.setOnClickListener{_ -> handleUserSelection(holder.getItemIndex())}
+            val holder = ButtonViewHolder(button, itemList)
+            button.setOnClickListener{_ -> onClick(holder.getItemIndex())}
             return holder
         }
 
@@ -50,11 +61,15 @@ class ItemChooser(private val listView: RecyclerView, private val layoutInflater
         }
 
         override fun getItemCount(): Int {
-            return items.size
+            return itemList.size
         }
     }
 
     private fun handleUserSelection(itemIndex:Int) {
-        // TODO
+        browseAction(items[itemIndex])
+    }
+
+    private fun handleUserBackup(itemIndex: Int) {
+        breadcrumbAction(libraryUI.breadcrumbStack[itemIndex])
     }
 }

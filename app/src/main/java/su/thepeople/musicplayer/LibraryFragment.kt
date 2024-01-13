@@ -26,6 +26,9 @@ class LibraryFragment(private val mainActivity: MainActivity) : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var itemChooser: ItemChooser
+    val breadcrumbStack = ArrayDeque<MediaItem>()
+    private var currentItem: MediaItem? = null
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -53,16 +56,48 @@ class LibraryFragment(private val mainActivity: MainActivity) : Fragment() {
     }
 
     private fun browseTo(item: MediaItem) {
-        Log.d("LibraryFragment", "Got " + item.mediaId)
-        loadChildren(item.mediaId)
+        val id = item.mediaId
+        Log.d("LibraryFragment","Browsing from ${currentItem?.mediaMetadata?.title} to ${item.mediaMetadata.title}")
+        breadcrumbStack.addFirst(currentItem!!)
+        currentItem = item
+        loadChildren(id)
+        Log.d("LibraryFragment", "Current item is now ${currentItem?.mediaMetadata?.title}")
+        Log.d("LibraryFragment", "Breadcrumbs have ${breadcrumbStack.size} items")
+        Log.d("LibraryFragment", "Top breadcrumb is ${breadcrumbStack.first().mediaMetadata.title}")
     }
 
+    private fun backupTo(item: MediaItem) {
+        Log.d("LibraryFragment","Backing up from ${currentItem?.mediaMetadata?.title} to ${item.mediaMetadata.title}")
+        var lastPopped: MediaItem?
+        do {
+            Log.d("LibraryFragment","Removing breadcrumb for ${breadcrumbStack.first().mediaMetadata.title}")
+            lastPopped = breadcrumbStack.removeFirstOrNull()
+        } while (lastPopped != null && lastPopped.mediaId != item.mediaId)
+        if (lastPopped == null) {
+            jumpToRoot()
+        } else {
+            currentItem = lastPopped
+            loadChildren(lastPopped.mediaId)
+        }
+        Log.d("LibraryFragment", "Current item is now ${currentItem?.mediaMetadata?.title}")
+        Log.d("LibraryFragment", "Breadcrumbs have ${breadcrumbStack.size} items")
+        Log.d("LibraryFragment", "Top breadcrumb is ${breadcrumbStack.firstOrNull()?.mediaMetadata?.title}")
+    }
+
+    private fun jumpToRoot() {
+        loadChildren(rootItem.mediaId)
+        currentItem = rootItem
+        breadcrumbStack.clear()
+    }
+
+    private lateinit var rootItem: MediaItem
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         mainActivity.mediaBrowser!!.getLibraryRoot(null).onSuccess {
-            browseTo(it.value!!)
+            rootItem = it.value!!
+            jumpToRoot()
         }
-        itemChooser = ItemChooser(binding.itemRecycler, layoutInflater)
+        itemChooser = ItemChooser(this, binding.itemList, binding.breadcrumbs, layoutInflater, { browseTo(it) }, { backupTo(it)} )
     }
 
     override fun onDestroyView() {

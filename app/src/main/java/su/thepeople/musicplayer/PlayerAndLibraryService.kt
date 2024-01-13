@@ -9,7 +9,9 @@ class PlayerAndLibraryService : MediaLibraryService() {
     private lateinit var mediaSession: MediaLibrarySession
     private lateinit var player: ExoPlayer
 
-    private var diskLibrary = DiskLibrary()
+    private val diskLibrary: DiskLibrary by lazy {
+        DiskLibrary(applicationContext)
+    }
 
     override fun onCreate() {
         super.onCreate()
