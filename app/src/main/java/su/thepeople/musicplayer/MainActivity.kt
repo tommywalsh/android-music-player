@@ -2,30 +2,27 @@ package su.thepeople.musicplayer
 
 import android.content.ComponentName
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import android.view.Menu
-import android.view.MenuItem
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaBrowser
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionToken
-import androidx.media3.ui.PlayerView
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.viewpager2.widget.ViewPager2
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : FragmentActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
-    private lateinit var playerView: PlayerView
     private lateinit var mediaSession: MediaSession
-    private var mediaController: MediaController? = null
-    private lateinit var controllerFuture: ListenableFuture<MediaController>
+    var mediaBrowser: MediaBrowser? = null
+    private lateinit var browserFuture: ListenableFuture<MediaBrowser>
+    private var playerFragment: PlayerFragment? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,29 +30,43 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        playerView = findViewById(R.id.player_view)
-
         // TODO: move this to a service
         val player = ExoPlayer.Builder(applicationContext).build()
         mediaSession = MediaSession.Builder(applicationContext, player).build()
-        playerView.player = player
+
+        // Set up fragments
+        val viewPager = findViewById<ViewPager2>(R.id.view_pager)
+
+        viewPager.adapter = object: FragmentStateAdapter(this) {
+            override fun createFragment(position: Int): Fragment {
+                return if (position == 0) {
+                    val pf = PlayerFragment(this@MainActivity)
+                    playerFragment = pf
+                    pf
+                } else {
+                    LibraryFragment(this@MainActivity)
+                }
+            }
+
+            override fun getItemCount() = 2
+        }
     }
 
     override fun onStart() {
         super.onStart()
         val sessionToken = SessionToken(this, ComponentName(this, PlayerAndLibraryService::class.java))
-        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture.addListener(
+        browserFuture = MediaBrowser.Builder(this, sessionToken).buildAsync()
+        browserFuture.addListener(
             {
-                mediaController?.release()
-                mediaController = controllerFuture.get()
-                playerView.player = mediaController
+                mediaBrowser?.release()
+                mediaBrowser = browserFuture.get()
+                playerFragment?.player = mediaBrowser
 
                 val path = "/storage/7F62-69AB/mcotp/Quarterflash/1981 Harden My Heart.mp3"
                 val mediaItem = MediaItem.Builder().setUri(path).build()
-                mediaController?.setMediaItem(mediaItem)
-                mediaController?.prepare()
-                mediaController?.play()
+                mediaBrowser?.setMediaItem(mediaItem)
+                mediaBrowser?.prepare()
+                mediaBrowser?.play()
 
             },
             MoreExecutors.directExecutor()
@@ -63,9 +74,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        MediaController.releaseFuture(controllerFuture)
-        mediaController?.release()
-        mediaController = null
+        MediaController.releaseFuture(browserFuture)
+        mediaBrowser?.release()
+        mediaBrowser = null
         super.onStop()
     }
 
@@ -77,25 +88,4 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        return when (item.itemId) {
-            R.id.action_settings -> true
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration)
-                || super.onSupportNavigateUp()
-    }
 }

@@ -12,9 +12,21 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
 const val BANDS_ID = "root:bands"
+const val ROOT_ID = "root"
 
 class DiskLibrary : MediaLibraryService.MediaLibrarySession.Callback {
 
+
+    private val rootItem = MediaItem.Builder()
+        .setMediaId(ROOT_ID)
+        .setMediaMetadata(MediaMetadata.Builder()
+            .setMediaType(MEDIA_TYPE_MUSIC)
+            .setDisplayTitle("Library")
+            .setTitle("Library")
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .build())
+        .build()
 
     private val bandsItem = MediaItem.Builder()
         .setMediaId(BANDS_ID)
@@ -32,17 +44,23 @@ class DiskLibrary : MediaLibraryService.MediaLibrarySession.Callback {
         controller: MediaSession.ControllerInfo,
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<MediaItem>>
     {
-        return Futures.immediateFuture(LibraryResult.ofItem(bandsItem, params))
+        return Futures.immediateFuture(LibraryResult.ofItem(rootItem, params))
     }
 
     override fun onGetItem(
         session: MediaLibraryService.MediaLibrarySession,
         controller: MediaSession.ControllerInfo,
         mediaId: String): ListenableFuture<LibraryResult<MediaItem>> {
-        return if (mediaId == BANDS_ID) {
-            Futures.immediateFuture(LibraryResult.ofItem(bandsItem, null))
-        } else {
-            Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE))
+        return when (mediaId) {
+            ROOT_ID -> {
+                Futures.immediateFuture(LibraryResult.ofItem(rootItem, null))
+            }
+            BANDS_ID -> {
+                Futures.immediateFuture(LibraryResult.ofItem(bandsItem, null))
+            }
+            else -> {
+                Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE))
+            }
         }
     }
 
@@ -53,6 +71,10 @@ class DiskLibrary : MediaLibraryService.MediaLibrarySession.Callback {
         page: Int,
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-        return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), null))
+        return if (parentId == ROOT_ID) {
+            Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem), null))
+        } else {
+            Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), null))
+        }
     }
 }
