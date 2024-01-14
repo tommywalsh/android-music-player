@@ -28,7 +28,7 @@
         </activity>
 
         <service
-            android:name=".PlayerAndLibraryService"
+            android:name=".McotpService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>

@@ -6,20 +6,21 @@ import androidx.media3.session.MediaSession
 import androidx.room.Room
 import su.thepeople.musicplayer.data.Database
 
-class PlayerAndLibraryService : MediaLibraryService() {
+// Handles both playing music and also library lookup into the MCotP calalog
+class McotpService : MediaLibraryService() {
 
     private lateinit var mediaSession: MediaLibrarySession
     private lateinit var player: ExoPlayer
     private lateinit var database: Database
 
-    private val diskLibrary: DiskLibrary by lazy {
-        DiskLibrary(applicationContext)
+    private val librarySession: McotpLibrarySession by lazy {
+        McotpLibrarySession(applicationContext)
     }
 
     override fun onCreate() {
         super.onCreate()
         player = ExoPlayer.Builder(this).build()
-        mediaSession = MediaLibrarySession.Builder(this, player, diskLibrary).setId("mcotp").build()
+        mediaSession = MediaLibrarySession.Builder(this, player, librarySession).setId("mcotp").build()
         database = Room.databaseBuilder(applicationContext, Database::class.java, "mcotp-database").build()
     }
 

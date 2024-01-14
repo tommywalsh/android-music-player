@@ -12,6 +12,10 @@ DONE Add database
     - DB fully initialized and idle
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
 ---
+Cleanup opportunities:
+- Add comments everywhere
+
+---
 Keep adding missing features like locking, playback modes, etc.
   - Allow "early access" to database before first scan complete?
   - Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?

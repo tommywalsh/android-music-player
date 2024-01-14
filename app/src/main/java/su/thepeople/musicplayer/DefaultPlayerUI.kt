@@ -9,10 +9,7 @@ import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import su.thepeople.musicplayer.databinding.FragmentPlayerBinding
 
-/**
- * A simple [Fragment] subclass as the default destination in the navigation.
- */
-class PlayerFragment(private val mainActivity: MainActivity) : Fragment() {
+class DefaultPlayerUI(private val mainActivity: MainActivity) : Fragment() {
 
     private var playerView: PlayerView? = null
 
@@ -34,10 +31,6 @@ class PlayerFragment(private val mainActivity: MainActivity) : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        /*binding.buttonFirst.setOnClickListener {
-            findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
-        }*/
     }
 
     override fun onDestroyView() {

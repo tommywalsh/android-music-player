@@ -9,6 +9,8 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
+const val NEW_OBJ_ID = 0
+
 @Database(entities = [Band::class, Album::class, Song::class], version = 1)
 abstract class Database : RoomDatabase() {
     private var executor = Executors.newSingleThreadExecutor()

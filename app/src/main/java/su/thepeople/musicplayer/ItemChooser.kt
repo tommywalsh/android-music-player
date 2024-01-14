@@ -1,5 +1,6 @@
 package su.thepeople.musicplayer
 
+import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.widget.Button
 import android.view.ViewGroup
@@ -9,30 +10,23 @@ import androidx.recyclerview.widget.RecyclerView
 import su.thepeople.musicplayer.databinding.ChooserItemBinding
 
 class ItemChooser(
-    private val libraryUI: LibraryFragment,
+    private val items: List<MediaItem>,  // TODO: Consider using livedata for this?
     private val listView: RecyclerView,
-    private val breadcrumbView: RecyclerView,
     private val layoutInflater: LayoutInflater,
-    private val browseAction: (MediaItem) -> Unit,  // TODO: Should this be MediaItem, or would String work fine?
-    private val breadcrumbAction: (MediaItem) -> Unit) {
-
-    private var items = ArrayList<MediaItem>()
+    private val browseAction: (MediaItem) -> Unit,
+    ) {
 
     init {
         listView.setHasFixedSize(true)
         listView.layoutManager = LinearLayoutManager(listView.context)
         listView.adapter = Adapter(::handleUserSelection, items)
-        breadcrumbView.setHasFixedSize(true)
-        breadcrumbView.layoutManager = LinearLayoutManager(breadcrumbView.context)
-        breadcrumbView.adapter = Adapter(::handleUserBackup, libraryUI.breadcrumbStack)
     }
 
-
-    fun refresh(newItems: List<MediaItem>) {
-        items.clear()
-        items.addAll(newItems)
+    // Our use cases either involve a very small list (breadcrumbs), or else a complete change of the entire
+    // list (children). Therefore, notifyDataSetChanged is not inefficient, and we suppress this warning
+    @SuppressLint("NotifyDataSetChanged")
+    fun refresh() {
         listView.adapter?.notifyDataSetChanged()
-        breadcrumbView.adapter?.notifyDataSetChanged()
     }
 
     private class ButtonViewHolder(private val button: Button, private val itemList: List<MediaItem>): RecyclerView.ViewHolder(button) {
@@ -67,9 +61,5 @@ class ItemChooser(
 
     private fun handleUserSelection(itemIndex:Int) {
         browseAction(items[itemIndex])
-    }
-
-    private fun handleUserBackup(itemIndex: Int) {
-        breadcrumbAction(libraryUI.breadcrumbStack[itemIndex])
     }
 }

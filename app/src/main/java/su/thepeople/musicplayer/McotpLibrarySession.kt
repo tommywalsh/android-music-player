@@ -13,85 +13,25 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import su.thepeople.musicplayer.data.ALBUM_PREFIX
-import su.thepeople.musicplayer.data.Album
 import su.thepeople.musicplayer.data.BAND_PREFIX
-import su.thepeople.musicplayer.data.Band
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.SONG_PREFIX
-import su.thepeople.musicplayer.data.Song
 import su.thepeople.musicplayer.data.dbId
-import java.io.File
 
 const val BANDS_ID = "root:bands"
 const val ROOT_ID = "root"
 
-class DiskLibrary(private val context: Context) : MediaLibraryService.MediaLibrarySession.Callback {
+class McotpLibrarySession(private val context: Context) : MediaLibraryService.MediaLibrarySession.Callback {
 
     private val database = Room.databaseBuilder(context, Database::class.java, "mcotp-database").build()
 
-    private fun isCollectionDirectory(candidate: File) : Boolean
-    {
-        return candidate.isDirectory && candidate.name == "mcotp"
-    }
-
     private fun startBackgroundScan() {
-        val mcotp = findMcotp(context.externalMediaDirs)
         if (!database.isScanned()) {
+            val scanner = Scanner(context, database)
             database.async {
-                mcotp?.listFiles()?.forEach { bandDir ->
-                    if (bandDir.isDirectory && bandDir.name != ".." && bandDir.name != "." && !bandDir.name.startsWith('[')) {
-                        val band = Band(0, bandDir.name, bandDir.absolutePath)
-                        val bandId = database.bandDao().insert(band).toInt()
-                        bandDir.listFiles()?.forEach { childObj ->
-                            if (childObj.isDirectory && childObj.name != ".." && childObj.name != "." && !childObj.name.startsWith('[')) {
-                                val album = Album(0, childObj.name, childObj.absolutePath, bandId)
-                                val albumId = database.albumDao().insert(album).toInt()
-                                childObj.listFiles()?.forEach { songFile ->
-                                    if (songFile.isFile && !songFile.name.startsWith("[") && songFile.extension != "json") {
-                                        val song = Song(0, songFile.name, songFile.absolutePath, bandId, albumId)
-                                        database.songDao().insert(song)
-                                    }
-                                }
-                            } else if  (childObj.isFile && !childObj.name.startsWith("[") && childObj.extension != "json") {
-                                val song = Song(0, childObj.name, childObj.absolutePath, bandId, null)
-                                database.songDao().insert(song)
-                            }
-                        }
-                    }
-                }
+                scanner.fullScan()
             }
         }
-    }
-
-
-    private fun findMcotpViaAncestors(startChild: File) : File? {
-        var current : File? = startChild
-        while (current != null) {
-            if (isCollectionDirectory(current)) {
-                return current
-            } else {
-                val child = File(current, "mcotp")
-                if (isCollectionDirectory(child)) {
-                    return child
-                }
-            }
-            current = current.parentFile
-        }
-        return null
-    }
-
-    private fun findMcotp(mediaDirs: Array<File>): File? {
-        // TODO: Hack to allow working with emulated device, which is not appearing in externalMediaDirs for some reason
-        val dirs = ArrayList<File>()
-        dirs.addAll(mediaDirs)
-        dirs.add(File("/storage/7F62-69AB"))
-
-        dirs.forEach {
-            val maybeMcotp = findMcotpViaAncestors(it)
-            if (maybeMcotp != null) return maybeMcotp
-        }
-        return null
-
     }
 
     private val rootItem = MediaItem.Builder()
@@ -121,6 +61,7 @@ class DiskLibrary(private val context: Context) : MediaLibraryService.MediaLibra
         controller: MediaSession.ControllerInfo,
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<MediaItem>>
     {
+        // TODO: This should really be coordinated elsewhere, perhaps in the service startup
         startBackgroundScan()
         return Futures.immediateFuture(LibraryResult.ofItem(rootItem, params))
     }

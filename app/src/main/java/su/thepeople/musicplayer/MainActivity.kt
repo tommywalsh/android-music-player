@@ -22,7 +22,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var mediaSession: MediaSession
     var mediaBrowser: MediaBrowser? = null
     private lateinit var browserFuture: ListenableFuture<MediaBrowser>
-    private var playerFragment: PlayerFragment? = null
+    private var defaultPlayerUI: DefaultPlayerUI? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,11 +40,11 @@ class MainActivity : FragmentActivity() {
         viewPager.adapter = object: FragmentStateAdapter(this) {
             override fun createFragment(position: Int): Fragment {
                 return if (position == 0) {
-                    val pf = PlayerFragment(this@MainActivity)
-                    playerFragment = pf
+                    val pf = DefaultPlayerUI(this@MainActivity)
+                    defaultPlayerUI = pf
                     pf
                 } else {
-                    LibraryFragment(this@MainActivity)
+                    LibraryUI(this@MainActivity)
                 }
             }
 
@@ -54,13 +54,13 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        val sessionToken = SessionToken(this, ComponentName(this, PlayerAndLibraryService::class.java))
+        val sessionToken = SessionToken(this, ComponentName(this, McotpService::class.java))
         browserFuture = MediaBrowser.Builder(this, sessionToken).buildAsync()
         browserFuture.addListener(
             {
                 mediaBrowser?.release()
                 mediaBrowser = browserFuture.get()
-                playerFragment?.player = mediaBrowser
+                defaultPlayerUI?.player = mediaBrowser
 
                 val path = "/storage/7F62-69AB/mcotp/Quarterflash/1981 Harden My Heart.mp3"
                 val mediaItem = MediaItem.Builder().setUri(path).build()
