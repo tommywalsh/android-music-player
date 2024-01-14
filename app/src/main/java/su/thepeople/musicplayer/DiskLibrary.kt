@@ -1,7 +1,6 @@
 package su.thepeople.musicplayer
 
 import android.content.Context
-import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
@@ -9,43 +8,59 @@ import androidx.media3.session.LibraryResult
 import androidx.media3.session.LibraryResult.RESULT_ERROR_BAD_VALUE
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.room.Room
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import su.thepeople.musicplayer.data.ALBUM_PREFIX
+import su.thepeople.musicplayer.data.Album
+import su.thepeople.musicplayer.data.BAND_PREFIX
+import su.thepeople.musicplayer.data.Band
+import su.thepeople.musicplayer.data.Database
+import su.thepeople.musicplayer.data.SONG_PREFIX
+import su.thepeople.musicplayer.data.Song
+import su.thepeople.musicplayer.data.dbId
 import java.io.File
-import java.util.concurrent.Callable
 
 const val BANDS_ID = "root:bands"
 const val ROOT_ID = "root"
 
 class DiskLibrary(private val context: Context) : MediaLibraryService.MediaLibrarySession.Callback {
 
+    private val database = Room.databaseBuilder(context, Database::class.java, "mcotp-database").build()
+
     private fun isCollectionDirectory(candidate: File) : Boolean
     {
         return candidate.isDirectory && candidate.name == "mcotp"
     }
 
-    private val database by lazy {
+    private fun startBackgroundScan() {
         val mcotp = findMcotp(context.externalMediaDirs)
-        val db = MusicDatabase()
-        mcotp?.listFiles()?.forEach {bandDir ->
-            if (bandDir.isDirectory && bandDir.name != ".." && bandDir.name != "." && !bandDir.name.startsWith('[')) {
-                val band = db.addBand(bandDir.name, bandDir.absoluteFile)
-                bandDir.listFiles()?.forEach { childObj ->
-                    if (childObj.isDirectory && childObj.name != ".." && childObj.name != "." && !childObj.name.startsWith('[')) {
-                        val album = db.addAlbum(childObj.name, childObj.absoluteFile, band.mediaId)
-                        childObj.listFiles()?.forEach { songFile ->
-                            if (songFile.isFile && !songFile.name.startsWith("[") && songFile.extension != "json") {
-                                db.addAlbumSong(songFile.name, songFile.absoluteFile, band.mediaId, album.mediaId)
+        if (!database.isScanned()) {
+            database.async {
+                mcotp?.listFiles()?.forEach { bandDir ->
+                    if (bandDir.isDirectory && bandDir.name != ".." && bandDir.name != "." && !bandDir.name.startsWith('[')) {
+                        val band = Band(0, bandDir.name, bandDir.absolutePath)
+                        val bandId = database.bandDao().insert(band).toInt()
+                        bandDir.listFiles()?.forEach { childObj ->
+                            if (childObj.isDirectory && childObj.name != ".." && childObj.name != "." && !childObj.name.startsWith('[')) {
+                                val album = Album(0, childObj.name, childObj.absolutePath, bandId)
+                                val albumId = database.albumDao().insert(album).toInt()
+                                childObj.listFiles()?.forEach { songFile ->
+                                    if (songFile.isFile && !songFile.name.startsWith("[") && songFile.extension != "json") {
+                                        val song = Song(0, songFile.name, songFile.absolutePath, bandId, albumId)
+                                        database.songDao().insert(song)
+                                    }
+                                }
+                            } else if  (childObj.isFile && !childObj.name.startsWith("[") && childObj.extension != "json") {
+                                val song = Song(0, childObj.name, childObj.absolutePath, bandId, null)
+                                database.songDao().insert(song)
                             }
                         }
-                    } else if  (childObj.isFile && !childObj.name.startsWith("[") && childObj.extension != "json") {
-                        db.addLooseSong(childObj.name, childObj.absoluteFile, band.mediaId)
                     }
                 }
             }
         }
-        db
     }
 
 
@@ -106,6 +121,7 @@ class DiskLibrary(private val context: Context) : MediaLibraryService.MediaLibra
         controller: MediaSession.ControllerInfo,
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<MediaItem>>
     {
+        startBackgroundScan()
         return Futures.immediateFuture(LibraryResult.ofItem(rootItem, params))
     }
 
@@ -120,25 +136,29 @@ class DiskLibrary(private val context: Context) : MediaLibraryService.MediaLibra
             mediaId == BANDS_ID -> {
                 Futures.immediateFuture(LibraryResult.ofItem(bandsItem, null))
             }
-            mediaId.startsWith("band:") -> {
-                val task = Callable {
-                    LibraryResult.ofItem(database.getBand(mediaId)!!, null)
+            mediaId.startsWith(BAND_PREFIX) -> {
+                val bandId = dbId(mediaId)
+                return database.async {
+                    val band = database.bandDao().get(bandId)
+                    val item = database.mediaItem(band)
+                    LibraryResult.ofItem(item, null)
                 }
-                Futures.submit(task, ContextCompat.getMainExecutor(context))
             }
-            mediaId.startsWith("album:") -> {
-                val task = Callable {
-                    LibraryResult.ofItem(database.getAlbum(mediaId)!!, null)
+            mediaId.startsWith(ALBUM_PREFIX) -> {
+                val albumId = dbId(mediaId)
+                return database.async {
+                    val album = database.albumDao().get(albumId)
+                    val item = database.mediaItem(album)
+                    LibraryResult.ofItem(item, null)
                 }
-                Futures.submit(task, ContextCompat.getMainExecutor(context))
-
             }
-            mediaId.startsWith("song:") -> {
-                val task = Callable {
-                    LibraryResult.ofItem(database.getSong(mediaId)!!, null)
+            mediaId.startsWith(SONG_PREFIX) -> {
+                val songId = dbId(mediaId)
+                return database.async {
+                    val song = database.songDao().get(songId)
+                    val item = database.mediaItem(song)
+                    LibraryResult.ofItem(item, null)
                 }
-                Futures.submit(task, ContextCompat.getMainExecutor(context))
-
             }
             else -> {
                 Futures.immediateFuture(LibraryResult.ofError(RESULT_ERROR_BAD_VALUE))
@@ -158,23 +178,29 @@ class DiskLibrary(private val context: Context) : MediaLibraryService.MediaLibra
                 Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem), null))
             }
             parentId == BANDS_ID -> {
-                val task = Callable {
-                    LibraryResult.ofItemList(ImmutableList.copyOf(database.getBands()), null)
+                return database.async {
+                    val bands = database.bandDao().getAll()
+                    val items = bands.map {database.mediaItem(it)}.sortedBy { it.mediaMetadata.displayTitle.toString() }
+                    LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
-                Futures.submit(task, ContextCompat.getMainExecutor(context))
             }
-            parentId.startsWith("band:") -> {
-                val task = Callable {
-                    val children = database.getAlbumsForBand(parentId) + database.getLooseSongsForBand(parentId)
-                    LibraryResult.ofItemList(ImmutableList.copyOf(children), null)
+            parentId.startsWith(BAND_PREFIX) -> {
+                val bandId = dbId(parentId)
+                return database.async {
+                    val albums = database.albumDao().getAllForBand(bandId)
+                    val albumItems = albums.map { database.mediaItem(it) }.sortedBy { it.mediaMetadata.displayTitle.toString() }
+                    val looseSongs = database.songDao().getLooseSongsForBand(bandId)
+                    val songItems = looseSongs.map {database.mediaItem(it)}.sortedBy {it.mediaMetadata.displayTitle.toString()}
+                    LibraryResult.ofItemList(ImmutableList.copyOf(albumItems + songItems), null)
                 }
-                Futures.submit(task, ContextCompat.getMainExecutor(context))
             }
-            parentId.startsWith("album:") -> {
-                val task = Callable {
-                    LibraryResult.ofItemList(ImmutableList.copyOf(database.getAlbumSongs(parentId)), null)
+            parentId.startsWith(ALBUM_PREFIX) -> {
+                val albumId = dbId(parentId)
+                return database.async {
+                    val songs = database.songDao().getSongsForAlbum(albumId)
+                    val items = songs.map {database.mediaItem(it)}.sortedBy{it.mediaMetadata.displayTitle.toString()}
+                    LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
-                Futures.submit(task, ContextCompat.getMainExecutor(context))
             }
             else -> {
                 Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), null))

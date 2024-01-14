@@ -1,18 +1,8 @@
 DONE Make simple library browser in UI
- DONE Make listview UI
- DONE Hook up top-level library to UI
-
 DONE Import music scanning code (can do brute-force whole-library scan for now)
- DONE Bands
- DONE Albums, album songs and loose songs
-
 DONE Serve up scanned bands using library API, verify using UI
- DONE Add "breadcrumbs" as user navigates down into bands, albums, etc.\
+DONE Add database
 
----
-4) Add database
-   Allow "early access" to database before first scan complete?
-5) Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
 6) Add full-library shuffle playback
 ---
 7) Create custom player UI with better controls
@@ -23,6 +13,11 @@ DONE Serve up scanned bands using library API, verify using UI
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
 ---
 Keep adding missing features like locking, playback modes, etc.
+  - Allow "early access" to database before first scan complete?
+  - Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?
+
+---
+DEFERRED Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
 
 
 
