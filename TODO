@@ -7,14 +7,11 @@ DONE Add full-library shuffle playback
 --
 
 7) Create custom player UI with better controls
-8) Playback behaves differently for:
-    - DB uninitialized and idle
-    - DB partially initialized, initialization underway
-    - DB fully initialized and idle
-    - DB fully initialized, being rescanned  (potentially same as initialized/idle)
+8) Make functional library browser that can initiate new playback modes on player
+
 ---
 Cleanup opportunities:
-- Add comments everywhere
+- Audit TODOs and "future directions"
 
 ---
 Keep adding missing features like locking, playback modes, etc.
@@ -26,6 +23,11 @@ How will we communicate non-standard info across app/service boundary, like doub
 How will we save player state to persist across close/open? Or is that unimportant?
 ---
 DEFERRED Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
+DEFERRED Playback behaves differently for:
+    - DB uninitialized and idle
+    - DB partially initialized, initialization underway
+    - DB fully initialized and idle
+    - DB fully initialized, being rescanned  (potentially same as initialized/idle)
 
 
 

@@ -9,8 +9,19 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
+/**
+ * Our database types all have integer IDs that are automatically assigned when the object is added to the database. That causes a chicken/egg
+ * problem.  You have to create the in-memory object (with ID), before you can add it to the DB. But, you only get the ID AFTER you add to the DB.
+ * To solve this, newly-created in-memory objects can use this NEW_OBJ_ID as a temporary placeholder until the database object is created.  Like so:
+ *
+ *   val newBand = Band(NEW_OBJ_ID, "Band Name", "/path/to/band/dir")
+ *   val newBandId = bandDao.insert(newBand)
+ */
 const val NEW_OBJ_ID = 0
 
+/**
+ * Database holding information about the Music Collection of the People
+ */
 @Database(entities = [Band::class, Album::class, Song::class], version = 1)
 abstract class Database : RoomDatabase() {
     private var executor = Executors.newSingleThreadExecutor()

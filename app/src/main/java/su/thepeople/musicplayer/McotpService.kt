@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.Futures
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
 
+// TODO: eliminate this object, which is duplicated elsewere. Put it in a utils file or something like that.
 private fun <T> successCallback(task: (T)->Unit): FutureCallback<T> {
     return object: FutureCallback<T> {
         override fun onSuccess(result: T) {
@@ -23,13 +24,23 @@ private fun <T> successCallback(task: (T)->Unit): FutureCallback<T> {
     }
 }
 
-// Handles both playing music and also library lookup into the MCotP catalog
+/**
+ * Android's media API awkwardly lumps together two different tasks:
+ *    1) Playing music
+ *    2) Navigating through a collection of music
+ *
+ * This class handles both of those tasks, although it offloads the navigation via the "mediaSession" object.
+ *
+ *
+ * Future directions:
+ *    - Consider breaking out the music playing functionality to another class, and using this class just as "glue" for the player and navigator.
+ */
 class McotpService : MediaLibraryService() {
 
-    private lateinit var mediaSession: MediaLibrarySession
-    private lateinit var player: ExoPlayer
-    private lateinit var database: Database
-    private lateinit var playbackManager: PlaybackManager
+    private lateinit var mediaSession: MediaLibrarySession  // Navigation object
+    private lateinit var player: ExoPlayer                  // Android-provided object that plays music
+    private lateinit var database: Database                 // Storage of band/album/song information
+    private lateinit var playbackManager: PlaybackManager   // Object that manages the player
 
     private val librarySession: McotpLibrarySession by lazy {
         McotpLibrarySession(applicationContext)
@@ -38,8 +49,22 @@ class McotpService : MediaLibraryService() {
     private var shuffleProvider = {database.songDao().getRandom(10)}
 
 
+    /**
+     * Helper class to handle feeding songs to the Android media player
+     */
     private inner class PlaybackManager {
+
+        /**
+         * A "function pointer" than handles retrieving a batch of songs from the database.  This function may be called repeatedly.
+         *
+         * TODO: This might someday need state, and might have to move to a formal interface with implementing subclasses
+         */
         private var provider: ()->List<Song> = shuffleProvider
+
+
+        /**
+         * Every time the player jumps to a new song, we check if the player is about to run out of songs, and if so, we send more.
+         */
         private var transitionListener = object: Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if(!player.hasNextMediaItem()) {
@@ -60,6 +85,7 @@ class McotpService : MediaLibraryService() {
         }
 
         private fun requestNextBatch() {
+            // Database access is always done from another thread.
             val future = database.async {
                 provider().map{database.mediaItem(it)}
             }

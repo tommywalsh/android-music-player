@@ -13,6 +13,9 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
 
+/**
+ * Main application.  This largely handles setup. Most of the app logic lives in other classes.
+ */
 class MainActivity : FragmentActivity() {
 
     private lateinit var binding: ActivityMainBinding

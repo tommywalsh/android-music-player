@@ -7,6 +7,9 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.PrimaryKey
 
+/**
+ * Database class defining a band
+ */
 @Entity
 data class Band (
     @PrimaryKey(autoGenerate = true) val id: Int,

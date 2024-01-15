@@ -8,6 +8,14 @@ import su.thepeople.musicplayer.data.NEW_OBJ_ID
 import su.thepeople.musicplayer.data.Song
 import java.io.File
 
+/**
+ * This class knows how to find the MCotP on disk, and scan it into the database.
+ *
+ * Future directions:
+ *   - Currently we have a crude "already scanned" check, so we will never scan the disk a second time.  That means any on-disk changes require a
+ *     full wipe of this app's storage.  It would be better if we could automatically update the database. This would involve scanning regularly, and
+ *     being smart about adding/updating/deleting as necessary (for now, the scanner only knows how to add, not update/delete).
+ */
 class Scanner(private val context: Context, private val database: Database) {
 
     private fun isCollectionDirectory(candidate: File): Boolean {

@@ -13,18 +13,29 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
 
+/**
+ * Helper class to keep track of the current navigational state.
+ */
 class LibraryViewModel {
     val breadcrumbStack = ArrayDeque<MediaItem>()
     var currentItem: MediaItem? = null
     val childItems = ArrayList<MediaItem>()
 }
 
+/**
+ * UI that allows users to browse the MCotP.  The UI is always focused on a single item (band, album, or other) and is composed of two parts:
+ *  - A list of children. Selecting a child will cause the UI to change focus to that child, thus navigating "down".
+ *  - A list of parents. Selecting a parent will also change focus. This navigates "back up". This is the "breadcrumb list"
+ *
+ * Future directions:
+ *   - We should distinguish between "browsable" and non-browsable objects, and only alloq focusing on browsable objects.
+ *   - Users should be able to change what's playing by navigating to an item and selecting it.
+ *   - There may even be multiple ways to "play" the same item (e.g. select a band to shuffle vs. all of their songs sequentially)
+ */
 class LibraryUI(private val mainActivity: MainActivity) : Fragment() {
 
     private var _binding: FragmentLibraryBinding? = null
 
-    // This property is only valid between onCreateView and
-    // onDestroyView.
     private val binding get() = _binding!!
 
     private val model = LibraryViewModel()
@@ -40,6 +51,9 @@ class LibraryUI(private val mainActivity: MainActivity) : Fragment() {
         return binding.root
     }
 
+    /**
+     * Helper function to associate a callback with a future without having to define a class at the callsite
+     */
     private fun <T> ListenableFuture<T>.onSuccess(callback: (T) -> Unit) {
         Futures.addCallback(this, object: FutureCallback<T> {
             override fun onSuccess(value: T) {

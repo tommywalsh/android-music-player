@@ -16,15 +16,33 @@ import su.thepeople.musicplayer.data.ALBUM_PREFIX
 import su.thepeople.musicplayer.data.BAND_PREFIX
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.SONG_PREFIX
-import su.thepeople.musicplayer.data.dbId
+import su.thepeople.musicplayer.data.internalId
 
 const val BANDS_ID = "root:bands"
 const val ROOT_ID = "root"
 
+/**
+ * This class represents a "MediaLibrarySession.Callback". Despite that name, this class serves as a navigation API.  All bands/albums/songs are
+ * represented as nodes in a tree, through which the user can navigate.
+ *
+ * This app's code is split  between the "activity" (frontend), and "service" (backend).  This class is on the service side, and it handles
+ * navigation requests from the activity side. This class's job includes translates from the generic language of Android's "media" API to the
+ * specific language of MCotP:
+ *
+ * onGetItem ->  Get information about a particular band, album, or song.
+ * onGetChildren -> "Get all of this band's albums", "Get all of this album's songs", etc.
+ *
+ * Future directions:
+ *   - Allow for navigation via date, genre, geography, style, etc.
+ *   - Allow for searching?
+ */
 class McotpLibrarySession(private val context: Context) : MediaLibraryService.MediaLibrarySession.Callback {
 
     private val database = Room.databaseBuilder(context, Database::class.java, "mcotp-database").build()
 
+    /**
+     * This kicks off a full scan of the disk, if necessary. The scan is a long-running operation that is run asynchronously.
+     */
     private fun startBackgroundScan() {
         if (!database.isScanned()) {
             val scanner = Scanner(context, database)
@@ -34,6 +52,10 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
         }
     }
 
+    /**
+     * Our top-level navigation object contains an entry for each way to navigate through the collection. For now, there's only 1 option, and that
+     * is via a list of Bands.  In future, we may add entries for navigating by year/decade, location, genre, style, etc.
+     */
     private val rootItem = MediaItem.Builder()
         .setMediaId(ROOT_ID)
         .setMediaMetadata(MediaMetadata.Builder()
@@ -45,6 +67,9 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
             .build())
         .build()
 
+    /**
+     * This object represents the root item when navigating via bands. This object will have one child for each band in the collection.
+     */
     private val bandsItem = MediaItem.Builder()
         .setMediaId(BANDS_ID)
         .setMediaMetadata(MediaMetadata.Builder()
@@ -78,7 +103,7 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
                 Futures.immediateFuture(LibraryResult.ofItem(bandsItem, null))
             }
             mediaId.startsWith(BAND_PREFIX) -> {
-                val bandId = dbId(mediaId)
+                val bandId = internalId(mediaId)
                 return database.async {
                     val band = database.bandDao().get(bandId)
                     val item = database.mediaItem(band)
@@ -86,7 +111,7 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
                 }
             }
             mediaId.startsWith(ALBUM_PREFIX) -> {
-                val albumId = dbId(mediaId)
+                val albumId = internalId(mediaId)
                 return database.async {
                     val album = database.albumDao().get(albumId)
                     val item = database.mediaItem(album)
@@ -94,7 +119,7 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
                 }
             }
             mediaId.startsWith(SONG_PREFIX) -> {
-                val songId = dbId(mediaId)
+                val songId = internalId(mediaId)
                 return database.async {
                     val song = database.songDao().get(songId)
                     val item = database.mediaItem(song)
@@ -126,7 +151,7 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
                 }
             }
             parentId.startsWith(BAND_PREFIX) -> {
-                val bandId = dbId(parentId)
+                val bandId = internalId(parentId)
                 return database.async {
                     val albums = database.albumDao().getAllForBand(bandId)
                     val albumItems = albums.map { database.mediaItem(it) }.sortedBy { it.mediaMetadata.displayTitle.toString() }
@@ -136,7 +161,7 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
                 }
             }
             parentId.startsWith(ALBUM_PREFIX) -> {
-                val albumId = dbId(parentId)
+                val albumId = internalId(parentId)
                 return database.async {
                     val songs = database.songDao().getSongsForAlbum(albumId)
                     val items = songs.map {database.mediaItem(it)}.sortedBy{it.mediaMetadata.displayTitle.toString()}

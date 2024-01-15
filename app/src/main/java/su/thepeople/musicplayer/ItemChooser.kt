@@ -9,6 +9,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import su.thepeople.musicplayer.databinding.ChooserItemBinding
 
+/**
+ * This is a simple but generic class representing a graphical pick list of buttons, where each button represents a MediaItem
+ * Whoever sets up the ItemChooser decides what exactly happens when a user presses one of the buttons.
+ */
 class ItemChooser(
     private val items: List<MediaItem>,  // TODO: Consider using livedata for this?
     private val listView: RecyclerView,
@@ -17,7 +21,7 @@ class ItemChooser(
     ) {
 
     init {
-        listView.setHasFixedSize(true)
+        listView.setHasFixedSize(true)  // "Size" here refers to widget size, not length of item list
         listView.layoutManager = LinearLayoutManager(listView.context)
         listView.adapter = Adapter(::handleUserSelection, items)
     }

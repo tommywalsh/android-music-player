@@ -7,6 +7,15 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 
+/**
+ * Database class defining a song.  Note that each song is associated with exactly one band. The song may or may not be associated with an album.
+ *
+ * Future directions:
+ *   - The year of each song should be tracked. At first, probably album songs should be required to have the same year as albums... but a "loose"
+ *     song would need to track its own year.
+ *   - We need to model track numbers for songs on albums. The correct way to do that in a database is probably to introduce an additional database
+ *     table to handle the cross-references. Each entry in the table would have (album_id, song_id, track_num).
+ */
 @Entity
 data class Song(
     @PrimaryKey(autoGenerate = true) val id: Int,
