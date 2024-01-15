@@ -28,6 +28,9 @@ interface SongDao {
     @Query("SELECT * from song WHERE id = :songId")
     fun get(songId: Int): Song
 
+    @Query("SELECT * from song ORDER BY random() LIMIT :numSongs")
+    fun getRandom(numSongs: Int): List<Song>
+
     @Insert
     fun insert(song: Song): Long
 

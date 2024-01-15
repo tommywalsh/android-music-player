@@ -2,9 +2,10 @@ DONE Make simple library browser in UI
 DONE Import music scanning code (can do brute-force whole-library scan for now)
 DONE Serve up scanned bands using library API, verify using UI
 DONE Add database
+DONE Add full-library shuffle playback
 
-6) Add full-library shuffle playback
----
+--
+
 7) Create custom player UI with better controls
 8) Playback behaves differently for:
     - DB uninitialized and idle
@@ -20,6 +21,9 @@ Keep adding missing features like locking, playback modes, etc.
   - Allow "early access" to database before first scan complete?
   - Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?
 
+How will we communicate non-standard info across app/service boundary, like double-shot weekend, and sequential mode, etc.?
+
+How will we save player state to persist across close/open? Or is that unimportant?
 ---
 DEFERRED Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
 
