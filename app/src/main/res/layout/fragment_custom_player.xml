@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    >
+
+    <ToggleButton
+        android:id="@+id/bandButton"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:text="Band Name"
+        android:textOn="Band Name"
+        android:textOff="Band Name"
+        />
+
+    <TextView
+        android:id="@+id/songLabel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:text="Song Title"
+        android:ellipsize="marquee"
+        android:gravity="center_horizontal|center_vertical"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:scrollHorizontally="true"
+        />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        >
+
+        <ToggleButton
+            android:id="@+id/yearLabel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:text="Year"
+            android:textOn="Year"
+            android:textOff="Year"
+            />
+
+        <ToggleButton
+            android:id="@+id/albumLabel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="Album Title"
+            android:textOn="Album Title"
+            android:textOff="Album Title"
+            />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/modeLabel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="Play Mode"
+        android:layout_weight="1"
+        android:ellipsize="marquee"
+        android:gravity="center_horizontal|center_vertical"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:scrollHorizontally="true"
+        />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        >
+
+        <Button
+            android:id="@+id/playPauseButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Play/Pause"
+            android:layout_weight="1"
+            />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            />
+
+        <Button
+            android:id="@+id/nextButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Next"
+            android:layout_weight="1"
+            />
+    </LinearLayout>
+</LinearLayout>

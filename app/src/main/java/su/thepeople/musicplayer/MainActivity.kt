@@ -21,7 +21,8 @@ class MainActivity : FragmentActivity() {
     private lateinit var binding: ActivityMainBinding
     var mediaBrowser: MediaBrowser? = null
     private lateinit var browserFuture: ListenableFuture<MediaBrowser>
-    private var defaultPlayerUI: DefaultPlayerUI? = null
+    private lateinit var customPlayerUI: CustomPlayerUI
+    private lateinit var libraryUI: LibraryUI
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,12 +35,15 @@ class MainActivity : FragmentActivity() {
 
         viewPager.adapter = object: FragmentStateAdapter(this) {
             override fun createFragment(position: Int): Fragment {
-                return if (position == 0) {
-                    val pf = DefaultPlayerUI(this@MainActivity)
-                    defaultPlayerUI = pf
-                    pf
-                } else {
-                    LibraryUI(this@MainActivity)
+                return when (position) {
+                    0 -> {
+                        customPlayerUI = CustomPlayerUI(this@MainActivity)
+                        customPlayerUI
+                    }
+                    else -> {
+                        libraryUI = LibraryUI(this@MainActivity)
+                        libraryUI
+                    }
                 }
             }
 
@@ -54,9 +58,12 @@ class MainActivity : FragmentActivity() {
         browserFuture.addListener(
             {
                 mediaBrowser?.release()
-                mediaBrowser = browserFuture.get()
-                defaultPlayerUI?.player = mediaBrowser
+                val mb = browserFuture.get()
+                mediaBrowser = mb
 
+                // The "media browser" serves as both a library and a player.
+                customPlayerUI.player = mb
+                libraryUI.library = mb
             },
             MoreExecutors.directExecutor()
         )

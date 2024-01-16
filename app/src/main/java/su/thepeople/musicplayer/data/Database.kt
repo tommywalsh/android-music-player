@@ -50,17 +50,17 @@ abstract class Database : RoomDatabase() {
 
     fun mediaItem(album: Album): MediaItem {
         val band = bandDao().get(album.bandId)
-        val metadata = MediaMetadata.Builder()
+        val builder = MediaMetadata.Builder()
             .setIsBrowsable(true)
             .setIsPlayable(false)
             .setArtist(band.name)
             .setTitle(album.name)
             .setAlbumTitle(album.name)
             .setDisplayTitle(album.name)
-            .build()
+        album.year?.let{builder.setReleaseYear(it.toInt())}
         return MediaItem.Builder()
             .setMediaId(album.externalId())
-            .setMediaMetadata(metadata)
+            .setMediaMetadata(builder.build())
             .setUri(album.path)
             .build()
     }
@@ -76,11 +76,13 @@ abstract class Database : RoomDatabase() {
         if (song.albumId != null) {
             val album = albumDao().get(song.albumId)
             builder.setAlbumTitle(album.name)
+            album.year?.let{builder.setReleaseYear(it.toInt())}
+        } else {
+            song.year?.let{builder.setReleaseYear(it.toInt())}
         }
-        val metadata = builder.build()
         return MediaItem.Builder()
             .setMediaId(song.externalId())
-            .setMediaMetadata(metadata)
+            .setMediaMetadata(builder.build())
             .setUri(song.path)
             .build()
     }

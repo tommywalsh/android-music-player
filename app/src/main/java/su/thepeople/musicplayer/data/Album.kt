@@ -12,14 +12,17 @@ import androidx.room.Query
  *
  * Future directions:
  *     - Separate year from album title
- *     - Maybe add support for compilations?
+ *     - support album ordering apart from year (some bands have 2+ albums in the same year)
+ *     - Maybe add support for compilations? (albums with no single band)
  */
 @Entity
 data class Album (
     @PrimaryKey(autoGenerate = true) val id: Int,
     val name: String,
     val path: String,
-    val bandId: Int)
+    val bandId: Int,
+    val year: String? = null
+    )
 
 @Dao
 interface AlbumDao {

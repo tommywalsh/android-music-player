@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.session.MediaBrowser
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -39,6 +40,16 @@ class LibraryUI(private val mainActivity: MainActivity) : Fragment() {
     private val binding get() = _binding!!
 
     private val model = LibraryViewModel()
+    var library: MediaBrowser? = null
+        set(newVal) {
+            field = newVal
+            newVal?.getLibraryRoot(null)?.onSuccess {
+                rootItem = it.value!!
+                jumpToRoot()
+            }
+        }
+
+
     private lateinit var childChooser: ItemChooser
     private lateinit var breadcrumbChooser: ItemChooser
 
@@ -112,7 +123,7 @@ class LibraryUI(private val mainActivity: MainActivity) : Fragment() {
     private lateinit var rootItem: MediaItem
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        mainActivity.mediaBrowser!!.getLibraryRoot(null).onSuccess {
+        mainActivity.mediaBrowser?.getLibraryRoot(null)?.onSuccess {
             rootItem = it.value!!
             jumpToRoot()
         }

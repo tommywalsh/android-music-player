@@ -8,6 +8,9 @@ import su.thepeople.musicplayer.data.NEW_OBJ_ID
 import su.thepeople.musicplayer.data.Song
 import java.io.File
 
+val ALBUM_REGEX = Regex("^((\\d\\d\\d\\d).? - )(.+)$")
+val LOOSE_SONG_REGEX = Regex("^((\\d\\d\\d\\d).? - )(.+)\\.[^.]+$")
+val ALBUM_SONG_REGEX = Regex("^((\\d+).? - )(.+)\\.[^.]+$")
 /**
  * This class knows how to find the MCotP on disk, and scan it into the database.
  *
@@ -65,23 +68,49 @@ class Scanner(private val context: Context, private val database: Database) {
                 candidate.extension != "json"
     }
 
-    private fun scanAlbumSongs(albumDir: File, bandId: Int, albumId: Int) {
+    private fun scanAlbumSongs(albumDir: File, bandId: Int, album: Album, albumId: Int) {
         albumDir.listFiles()?.forEach { songFile ->
             if (isSongFile(songFile)) {
-                val song = Song(NEW_OBJ_ID, songFile.name, songFile.absolutePath, bandId, albumId)
-                database.songDao().insert(song)
+                scanAlbumSong(songFile, bandId, album, albumId)
             }
         }
     }
 
     private fun scanAlbumAndContents(albumDir: File, bandId: Int) {
-        val album = Album(NEW_OBJ_ID, albumDir.name, albumDir.absolutePath, bandId)
+        val matchResult = ALBUM_REGEX.matchEntire(albumDir.name)
+        val album: Album = if (matchResult != null) {
+            val year = matchResult.groups[2]!!.value
+            val bandName = matchResult.groups[3]!!.value
+            Album(NEW_OBJ_ID, bandName, albumDir.absolutePath, bandId, year)
+        } else {
+            Album(NEW_OBJ_ID, albumDir.name.substringBeforeLast("."), albumDir.absolutePath, bandId)
+        }
+
         val albumId = database.albumDao().insert(album).toInt()
-        scanAlbumSongs(albumDir, bandId, albumId)
+        scanAlbumSongs(albumDir, bandId, album, albumId)
     }
 
     private fun scanLooseSong(songFile: File, bandId: Int) {
-        val song = Song(NEW_OBJ_ID, songFile.name, songFile.absolutePath, bandId, null)
+        val matchResult = LOOSE_SONG_REGEX.matchEntire(songFile.name)
+        val song: Song = if (matchResult != null) {
+            val year = matchResult.groups[2]!!.value
+            val songName = matchResult.groups[3]!!.value
+            Song(NEW_OBJ_ID, songName, songFile.absolutePath, bandId, year=year)
+        } else {
+            Song(NEW_OBJ_ID, songFile.name.substringBeforeLast("."), songFile.absolutePath, bandId)
+        }
+        database.songDao().insert(song)
+    }
+
+    private fun scanAlbumSong(songFile: File, bandId: Int, album: Album, albumId: Int) {
+        val matchResult = ALBUM_SONG_REGEX.matchEntire(songFile.name)
+        val song: Song = if (matchResult != null) {
+            val trackNum = matchResult.groups[2]!!.value  // TODO: implement track numbers, needed for sequential play mode
+            val songName = matchResult.groups[3]!!.value
+            Song(NEW_OBJ_ID, songName, songFile.absolutePath, bandId, albumId, album.year)
+        } else {
+            Song(NEW_OBJ_ID, songFile.name.substringBeforeLast("."), songFile.absolutePath, bandId, albumId, album.year)
+        }
         database.songDao().insert(song)
     }
 
@@ -100,11 +129,9 @@ class Scanner(private val context: Context, private val database: Database) {
     fun fullScan() {
         // TODO: Use non-deprecated API for accessing MCotP
         val mcotp = findMcotp(context.externalMediaDirs)
-        if (!database.isScanned()) {
-            mcotp?.listFiles()?.forEach { childObj ->
-                if (isBandOrAlbumDir(childObj)) {
-                    scanBandAndContents(childObj)
-                }
+        mcotp?.listFiles()?.forEach { childObj ->
+            if (isBandOrAlbumDir(childObj)) {
+                scanBandAndContents(childObj)
             }
         }
     }

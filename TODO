@@ -3,15 +3,17 @@ DONE Import music scanning code (can do brute-force whole-library scan for now)
 DONE Serve up scanned bands using library API, verify using UI
 DONE Add database
 DONE Add full-library shuffle playback
+DONE Create custom player UI with better controls
 
 --
 
-7) Create custom player UI with better controls
+7) Implement new play modes (locking, etc.)
 8) Make functional library browser that can initiate new playback modes on player
 
 ---
 Cleanup opportunities:
 - Audit TODOs and "future directions"
+- Scanner needs to kick off automatically, without user needing to switch to the library UI!
 
 ---
 Keep adding missing features like locking, playback modes, etc.
@@ -28,6 +30,5 @@ DEFERRED Playback behaves differently for:
     - DB partially initialized, initialization underway
     - DB fully initialized and idle
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
-
 
 
