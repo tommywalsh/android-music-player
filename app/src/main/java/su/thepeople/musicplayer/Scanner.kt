@@ -105,11 +105,11 @@ class Scanner(private val context: Context, private val database: Database) {
     private fun scanAlbumSong(songFile: File, bandId: Int, album: Album, albumId: Int) {
         val matchResult = ALBUM_SONG_REGEX.matchEntire(songFile.name)
         val song: Song = if (matchResult != null) {
-            val trackNum = matchResult.groups[2]!!.value  // TODO: implement track numbers, needed for sequential play mode
+            val trackNum = matchResult.groups[2]!!.value
             val songName = matchResult.groups[3]!!.value
-            Song(NEW_OBJ_ID, songName, songFile.absolutePath, bandId, albumId, album.year)
+            Song(NEW_OBJ_ID, songName, songFile.absolutePath, bandId, album.year, albumId, trackNum.toInt())
         } else {
-            Song(NEW_OBJ_ID, songFile.name.substringBeforeLast("."), songFile.absolutePath, bandId, albumId, album.year)
+            Song(NEW_OBJ_ID, songFile.name.substringBeforeLast("."), songFile.absolutePath, bandId, album.year, albumId)
         }
         database.songDao().insert(song)
     }

@@ -22,8 +22,9 @@ data class Song(
     val name: String,
     val path: String,
     val bandId: Int,
+    val year: String? = null,
     val albumId: Int? = null,
-    val year: String? = null
+    val albumTrackNum: Int? = null
 )
 
 
@@ -32,14 +33,23 @@ interface SongDao {
     @Query("SELECT * from song WHERE bandId = :bandId and albumId IS NULL")
     fun getLooseSongsForBand(bandId: Int): List<Song>
 
-    @Query("SELECT * from song WHERE albumId = :albumId")
+    @Query("SELECT * from song WHERE albumId = :albumId ORDER BY albumTrackNum")
     fun getSongsForAlbum(albumId: Int): List<Song>
 
     @Query("SELECT * from song WHERE id = :songId")
     fun get(songId: Int): Song
 
-    @Query("SELECT * from song ORDER BY random() LIMIT :numSongs")
-    fun getRandom(numSongs: Int): List<Song>
+    @Query("SELECT * from song ORDER BY random() LIMIT 1")
+    fun getRandomSong(): Song
+
+    @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT :maxSongs")
+    fun getRandomSongsForBand(bandId: Int, maxSongs: Int): List<Song>
+
+    @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT 1")
+    fun getRandomSongForBand(bandId: Int): Song
+
+    @Query("SELECT * from song WHERE albumId = :albumId ORDER BY random() LIMIT 1")
+    fun getRandomSongForAlbum(albumId: Int): Song
 
     @Insert
     fun insert(song: Song): Long

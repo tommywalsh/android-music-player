@@ -1,5 +1,6 @@
 package su.thepeople.musicplayer.data
 
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.room.Database
@@ -48,6 +49,16 @@ abstract class Database : RoomDatabase() {
             .build()
     }
 
+    private fun dbIdBundle(song: Song): Bundle {
+        val bundle = Bundle()
+        bundle.putInt("band", song.bandId)
+        if (song.albumId != null) {
+            bundle.putInt("album", song.albumId)
+        }
+        bundle.putInt("song", song.id)
+        return bundle
+    }
+
     fun mediaItem(album: Album): MediaItem {
         val band = bandDao().get(album.bandId)
         val builder = MediaMetadata.Builder()
@@ -73,6 +84,7 @@ abstract class Database : RoomDatabase() {
             .setArtist(band.name)
             .setTitle(song.name)
             .setDisplayTitle(song.name)
+            .setExtras(dbIdBundle(song))
         if (song.albumId != null) {
             val album = albumDao().get(song.albumId)
             builder.setAlbumTitle(album.name)

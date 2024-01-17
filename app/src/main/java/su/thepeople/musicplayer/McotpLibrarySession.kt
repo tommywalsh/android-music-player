@@ -1,13 +1,21 @@
 package su.thepeople.musicplayer
 
 import android.content.Context
+import android.os.Bundle
+import android.util.Log
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.LibraryResult.RESULT_ERROR_BAD_VALUE
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSession.ConnectionResult
+import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.room.Room
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -36,21 +44,9 @@ const val ROOT_ID = "root"
  *   - Allow for navigation via date, genre, geography, style, etc.
  *   - Allow for searching?
  */
-class McotpLibrarySession(private val context: Context) : MediaLibraryService.MediaLibrarySession.Callback {
+class McotpLibrarySession(val context: Context, private val player: CustomPlayer) : MediaLibraryService.MediaLibrarySession.Callback {
 
     private val database = Room.databaseBuilder(context, Database::class.java, "mcotp-database").build()
-
-    /**
-     * This kicks off a full scan of the disk, if necessary. The scan is a long-running operation that is run asynchronously.
-     */
-    private fun startBackgroundScan() {
-        if (!database.isScanned()) {
-            val scanner = Scanner(context, database)
-            database.async {
-                scanner.fullScan()
-            }
-        }
-    }
 
     /**
      * Our top-level navigation object contains an entry for each way to navigate through the collection. For now, there's only 1 option, and that
@@ -67,6 +63,11 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
             .build())
         .build()
 
+    init {
+        Log.d("Library", "Initializing library")
+        Log.d("Library", "Root item is $rootItem")
+    }
+
     /**
      * This object represents the root item when navigating via bands. This object will have one child for each band in the collection.
      */
@@ -81,13 +82,28 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
             .build())
         .build()
 
+    @OptIn(UnstableApi::class)
+    override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): ConnectionResult {
+        // TODO: Audit these default commands and see if they really all apply
+        val sessionCommands = ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+            .add(SessionCommand("band", Bundle.EMPTY))
+            .add(SessionCommand("album", Bundle.EMPTY))
+            .add(SessionCommand("submode", Bundle.EMPTY))
+            .build()
+        val playerCommands = ConnectionResult.DEFAULT_PLAYER_COMMANDS
+        // TODO: Can we use the "customlayout" here to notify about locking?
+        return AcceptedResultBuilder(session)
+            .setAvailablePlayerCommands(playerCommands)
+            .setAvailableSessionCommands(sessionCommands)
+            .build()
+    }
+
     override fun onGetLibraryRoot(
         session: MediaLibraryService.MediaLibrarySession,
         controller: MediaSession.ControllerInfo,
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<MediaItem>>
     {
-        // TODO: This should really be coordinated elsewhere, perhaps in the service startup
-        startBackgroundScan()
+        Log.d("Library", "Returning root object $rootItem")
         return Futures.immediateFuture(LibraryResult.ofItem(rootItem, params))
     }
 
@@ -173,4 +189,25 @@ class McotpLibrarySession(private val context: Context) : MediaLibraryService.Me
             }
         }
     }
+    override fun onCustomCommand(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        customCommand: SessionCommand,
+        args: Bundle
+    ): ListenableFuture<SessionResult> {
+        when (customCommand.customAction) {
+            "band" -> {
+                player.toggleBandLock()
+            }
+            "album" -> {
+                player.toggleAlbumLock()
+            }
+            "submode" -> {
+                player.changeSubMode()
+            }
+        }
+        Log.d("Session", "Got command ${customCommand.customAction}")
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+    }
+
 }

@@ -27,6 +27,9 @@ interface BandDao {
     @Query("SELECT * from band LIMIT 1")
     fun getAny(): List<Band>
 
+    @Query("SELECT * from band ORDER BY random() LIMIT 1")
+    fun getRandomBand(): Band
+
     @Insert
     fun insert(band: Band): Long
 

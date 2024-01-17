@@ -1,146 +1,100 @@
 package su.thepeople.musicplayer
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaBrowser
-import com.google.common.util.concurrent.FutureCallback
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
 
 /**
- * Helper class to keep track of the current navigational state.
- */
-class LibraryViewModel {
-    val breadcrumbStack = ArrayDeque<MediaItem>()
-    var currentItem: MediaItem? = null
-    val childItems = ArrayList<MediaItem>()
-}
-
-/**
- * UI that allows users to browse the MCotP.  The UI is always focused on a single item (band, album, or other) and is composed of two parts:
- *  - A list of children. Selecting a child will cause the UI to change focus to that child, thus navigating "down".
- *  - A list of parents. Selecting a parent will also change focus. This navigates "back up". This is the "breadcrumb list"
+ * This UI Wrapper exists solely to manage the setup of the library UI.  Setup is a bit complicated, because we have two asynchronous operations:
+ *    1) UI widget/view creation and finalization
+ *    2) Backend session initialization
  *
- * Future directions:
- *   - We should distinguish between "browsable" and non-browsable objects, and only alloq focusing on browsable objects.
- *   - Users should be able to change what's playing by navigating to an item and selecting it.
- *   - There may even be multiple ways to "play" the same item (e.g. select a band to shuffle vs. all of their songs sequentially)
+ * These two things can happen in either order. Some work can happen when a single one of these is complete. Other work needs to wait until both of
+ * them are.  If we were to combine all of this work into the same class, we'd have to carefully keep track of which operations had completed, and
+ * modify the behavior accordingly. This would be relatively hard to reason about.
+ *
+ * Adding additional complication: backend session initialization is actually a two-step process, both of which are asynchronous.
+ *
+ * Instead, of one complicated class, we divide the work into two classes.  This wrapper's job is simply to wait until BOTH of the two async
+ * operations are done, and then we create an associated "UI Implementation" object. That object actually handles all of the UI logic. That logic can
+ * now be much more straightforward, because it knows that, by the time it starts running, ALL of the necessary setup work has already been performed.
  */
-class LibraryUI(private val mainActivity: MainActivity) : Fragment() {
+class LibraryUI(private val context: Context) : Fragment() {
 
-    private var _binding: FragmentLibraryBinding? = null
+    /*
+     * These lateinit variables are set by async processes. We may activate the actual UI logic only when ALL of these are initialized.
+     */
+    private lateinit var binding: FragmentLibraryBinding
+    private lateinit var inflater: LayoutInflater
+    private lateinit var backendLibrary: MediaBrowser
+    private lateinit var rootItem: MediaItem
 
-    private val binding get() = _binding!!
+    // For convenience, we'll track completeness with these booleans (although we could instead opt to check if the lateinits are all set up)
+    private var uiInitialized: Boolean = false
+    private var backendInitialized: Boolean = false
 
-    private val model = LibraryViewModel()
-    var library: MediaBrowser? = null
-        set(newVal) {
-            field = newVal
-            newVal?.getLibraryRoot(null)?.onSuccess {
-                rootItem = it.value!!
-                jumpToRoot()
-            }
-        }
+    // This is the object that actually does the UI work
+    private lateinit var impl: LibraryUIImpl
 
-
-    private lateinit var childChooser: ItemChooser
-    private lateinit var breadcrumbChooser: ItemChooser
-
-
+    /**
+     * This method's job is simply to "inflate" our UI widgets and grab handles to them. The entire view creation process might not be completed yet
+     * when this is called.
+     */
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentLibraryBinding.inflate(inflater, container, false)
+        binding = FragmentLibraryBinding.inflate(inflater, container, false)
+        Log.d("LibraryUI", "View is being created")
         return binding.root
     }
 
     /**
-     * Helper function to associate a callback with a future without having to define a class at the callsite
+     * This function gets called after the entire view creation process is complete. Here is where we do our initialization logic.
      */
-    private fun <T> ListenableFuture<T>.onSuccess(callback: (T) -> Unit) {
-        Futures.addCallback(this, object: FutureCallback<T> {
-            override fun onSuccess(value: T) {
-                callback(value)
-            }
-            override fun onFailure(t: Throwable) {
-                // TODO: what to do about errors?
-            }
-        }, ContextCompat.getMainExecutor(mainActivity))
-    }
-
-    private fun loadChildren(mediaId: String) {
-        mainActivity.mediaBrowser!!.getChildren(mediaId, 0, Int.MAX_VALUE, null).onSuccess {
-            model.childItems.clear()
-            model.childItems.addAll(it.value!!)
-            childChooser.refresh()
-            breadcrumbChooser.refresh()
-        }
-    }
-
-    private fun browseTo(item: MediaItem) {
-        val id = item.mediaId
-        Log.d("LibraryFragment","Browsing from ${model.currentItem?.mediaMetadata?.title} to ${item.mediaMetadata.title}")
-        model.breadcrumbStack.addFirst(model.currentItem!!)
-        model.currentItem = item
-        loadChildren(id)
-        Log.d("LibraryFragment", "Current item is now ${model.currentItem?.mediaMetadata?.title}")
-        Log.d("LibraryFragment", "Breadcrumbs have ${model.breadcrumbStack.size} items")
-        Log.d("LibraryFragment", "Top breadcrumb is ${model.breadcrumbStack.first().mediaMetadata.title}")
-    }
-
-    private fun backupTo(item: MediaItem) {
-        Log.d("LibraryFragment","Backing up from ${model.currentItem?.mediaMetadata?.title} to ${item.mediaMetadata.title}")
-        var lastPopped: MediaItem?
-        do {
-            Log.d("LibraryFragment","Removing breadcrumb for ${model.breadcrumbStack.first().mediaMetadata.title}")
-            lastPopped = model.breadcrumbStack.removeFirstOrNull()
-        } while (lastPopped != null && lastPopped.mediaId != item.mediaId)
-        if (lastPopped == null) {
-            jumpToRoot()
-        } else {
-            model.currentItem = lastPopped
-            loadChildren(lastPopped.mediaId)
-        }
-        Log.d("LibraryFragment", "Current item is now ${model.currentItem?.mediaMetadata?.title}")
-        Log.d("LibraryFragment", "Breadcrumbs have ${model.breadcrumbStack.size} items")
-        Log.d("LibraryFragment", "Top breadcrumb is ${model.breadcrumbStack.firstOrNull()?.mediaMetadata?.title}")
-    }
-
-    private fun jumpToRoot() {
-        loadChildren(rootItem.mediaId)
-        model.currentItem = rootItem
-        model.breadcrumbStack.clear()
-    }
-
-    private lateinit var rootItem: MediaItem
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        mainActivity.mediaBrowser?.getLibraryRoot(null)?.onSuccess {
-            rootItem = it.value!!
-            jumpToRoot()
+
+        // The UI creation is done. If the backend initialization is also complete, then it's time to activate the implementation
+        Log.d("LibraryUI", "View creation is now finished, so UI is ready")
+        uiInitialized = true
+        if (backendInitialized) {
+            Log.d("LibraryUI", "Activating, since backend is also ready")
+            activate()
         }
-        childChooser = ItemChooser (
-            model.childItems,
-            binding.itemList,
-            layoutInflater
-        ) { browseTo(it) }
-        breadcrumbChooser = ItemChooser (
-            model.breadcrumbStack,
-            binding.breadcrumbs,
-            layoutInflater
-        ) { backupTo(it) }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    fun setBackendLibrary(newLibrary: MediaBrowser) {
+        // Once we have the handle to the backend object, we kick off an async process to get the library's root object.
+        backendLibrary = newLibrary
+        Log.d("LibraryUI", "Backend handle acquired. Now asking for root object")
+        backendLibrary.getLibraryRoot(null).onSuccess(context, this::onRootReceived)
+    }
+
+    private fun onRootReceived(result: LibraryResult<MediaItem>) {
+        val newRoot = result.value
+        if (newRoot != null) {
+            rootItem = newRoot
+            Log.d("LibraryUI", "Root object acquired, so backend is ready")
+
+            // Our async backend initialization is complete.  If the UI creation is also complete, it's time to activate the implementation
+            backendInitialized = true
+            if (uiInitialized) {
+                Log.d("LibraryUI", "Activating, since UI is also ready")
+                activate()
+            }
+        }
+    }
+
+    private fun activate() {
+        impl = LibraryUIImpl(backendLibrary, rootItem, binding, inflater, context)
     }
 }

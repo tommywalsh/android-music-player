@@ -4,10 +4,11 @@ DONE Serve up scanned bands using library API, verify using UI
 DONE Add database
 DONE Add full-library shuffle playback
 DONE Create custom player UI with better controls
+DONE Implement new play modes (locking, etc.)
 
 --
 
-7) Implement new play modes (locking, etc.)
+
 8) Make functional library browser that can initiate new playback modes on player
 
 ---
@@ -31,4 +32,5 @@ DEFERRED Playback behaves differently for:
     - DB fully initialized and idle
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
 
-
+DEFERRED
+- less-used modes: year, decade, block party, band sequential

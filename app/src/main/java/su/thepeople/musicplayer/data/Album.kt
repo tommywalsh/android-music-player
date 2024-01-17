@@ -32,6 +32,9 @@ interface AlbumDao {
     @Query("SELECT * from album WHERE id = :albumId")
     fun get(albumId: Int): Album
 
+    @Query("SELECT * from album ORDER BY random() LIMIT 1")
+    fun getRandomAlbum(): Album
+
     @Insert
     fun insert(album: Album): Long
 
