@@ -37,7 +37,7 @@ abstract class Database : RoomDatabase() {
     fun mediaItem(band: Band): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setIsBrowsable(true)
-            .setIsPlayable(false)
+            .setIsPlayable(true)
             .setArtist(band.name)
             .setTitle(band.name)
             .setDisplayTitle(band.name)
@@ -63,7 +63,7 @@ abstract class Database : RoomDatabase() {
         val band = bandDao().get(album.bandId)
         val builder = MediaMetadata.Builder()
             .setIsBrowsable(true)
-            .setIsPlayable(false)
+            .setIsPlayable(true)
             .setArtist(band.name)
             .setTitle(album.name)
             .setAlbumTitle(album.name)
@@ -85,6 +85,7 @@ abstract class Database : RoomDatabase() {
             .setTitle(song.name)
             .setDisplayTitle(song.name)
             .setExtras(dbIdBundle(song))
+            .setTrackNumber(song.albumTrackNum?:0)
         if (song.albumId != null) {
             val album = albumDao().get(song.albumId)
             builder.setAlbumTitle(album.name)
@@ -92,6 +93,7 @@ abstract class Database : RoomDatabase() {
         } else {
             song.year?.let{builder.setReleaseYear(it.toInt())}
         }
+        builder.setTrackNumber(song.albumTrackNum?:0)
         return MediaItem.Builder()
             .setMediaId(song.externalId())
             .setMediaMetadata(builder.build())

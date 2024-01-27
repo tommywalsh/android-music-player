@@ -2,6 +2,7 @@ package su.thepeople.musicplayer
 
 import android.content.ComponentName
 import android.os.Bundle
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.media3.session.MediaBrowser
@@ -10,7 +11,6 @@ import androidx.media3.session.SessionToken
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
 
 /**
@@ -30,6 +30,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var connectionFinalizeCallback: ListenableFuture<MediaBrowser>
     private lateinit var playerUI: PlayerUI
     private lateinit var libraryUI: LibraryUI
+    private lateinit var viewPager: ViewPager2
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,11 +40,11 @@ class MainActivity : FragmentActivity() {
         setContentView(binding.root)
 
         // Initialize the helper UI fragments
-        playerUI = PlayerUI()
-        libraryUI = LibraryUI(this@MainActivity)
+        playerUI = PlayerUI(this@MainActivity)
+        libraryUI = LibraryUI(this@MainActivity, this@MainActivity)
 
         // Set up the pager that allows swiping between the UI fragments
-        val viewPager = findViewById<ViewPager2>(R.id.view_pager)
+        viewPager = binding.viewPager
         viewPager.adapter = object: FragmentStateAdapter(this) {
             override fun createFragment(position: Int): Fragment {
                 return when (position) {
@@ -61,7 +62,7 @@ class MainActivity : FragmentActivity() {
         // Start the process of connecting to the backend
         val sessionToken = SessionToken(this, ComponentName(this, McotpService::class.java))
         connectionFinalizeCallback = MediaBrowser.Builder(this, sessionToken).buildAsync()
-        connectionFinalizeCallback.addListener(::onBackendConnectionFinalized, MoreExecutors.directExecutor())
+        connectionFinalizeCallback.addListener(::onBackendConnectionFinalized, ContextCompat.getMainExecutor(this))
     }
 
     private fun onBackendConnectionFinalized() {
@@ -86,5 +87,14 @@ class MainActivity : FragmentActivity() {
         backendConnection?.release()
         backendConnection = null
         super.onStop()
+    }
+
+    fun navigateToPlayer() {
+        viewPager.currentItem = 0
+    }
+
+    fun navigateTo(parentIds: List<String>, childId: String) {
+        libraryUI.navigateTo(parentIds, childId)
+        viewPager.currentItem = 1
     }
 }

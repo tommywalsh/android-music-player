@@ -85,10 +85,11 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
     @OptIn(UnstableApi::class)
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): ConnectionResult {
         // TODO: Audit these default commands and see if they really all apply
-        val sessionCommands = ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+        val sessionCommands = ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             .add(SessionCommand("band", Bundle.EMPTY))
             .add(SessionCommand("album", Bundle.EMPTY))
             .add(SessionCommand("submode", Bundle.EMPTY))
+            .add(SessionCommand("play-item", Bundle.EMPTY))
             .build()
         val playerCommands = ConnectionResult.DEFAULT_PLAYER_COMMANDS
         // TODO: Can we use the "customlayout" here to notify about locking?
@@ -137,9 +138,10 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             mediaId.startsWith(SONG_PREFIX) -> {
                 val songId = internalId(mediaId)
                 return database.async {
-                    val song = database.songDao().get(songId)
-                    val item = database.mediaItem(song)
-                    LibraryResult.ofItem(item, null)
+                    val item = database.songDao().get(songId)?.let {song->
+                        LibraryResult.ofItem(database.mediaItem(song), null)
+                    }
+                    item ?: LibraryResult.ofError(RESULT_ERROR_BAD_VALUE)
                 }
             }
             else -> {
@@ -197,13 +199,18 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
     ): ListenableFuture<SessionResult> {
         when (customCommand.customAction) {
             "band" -> {
-                player.toggleBandLock()
+                player.changeBandLock()
             }
             "album" -> {
-                player.toggleAlbumLock()
+                player.changeAlbumLock()
             }
             "submode" -> {
                 player.changeSubMode()
+            }
+            "play-item" -> {
+                args.getString("id")?.let {
+                    player.forcePlayItem(it)
+                }
             }
         }
         Log.d("Session", "Got command ${customCommand.customAction}")

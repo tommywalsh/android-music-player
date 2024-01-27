@@ -14,7 +14,7 @@ import su.thepeople.musicplayer.databinding.FragmentCustomPlayerBinding
  * The actual logic is contained in PlayerUIImpl.  This class merely handles coordinating intial bootstrapping.
  *
  */
-class PlayerUI : Fragment() {
+class PlayerUI(private val mainUI: MainActivity) : Fragment() {
 
     /**
      * The binding and player objects are initialized by async processes that may finish in either order. We may set up and activate the actual
@@ -43,6 +43,6 @@ class PlayerUI : Fragment() {
     }
 
     private fun activate() {
-        impl = PlayerUIImpl(binding, player)
+        impl = PlayerUIImpl(binding, player, mainUI)
     }
 }

@@ -2,6 +2,7 @@ package su.thepeople.musicplayer
 
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.Button
 import android.view.ViewGroup
 import androidx.media3.common.MediaItem
@@ -18,12 +19,13 @@ class ItemChooser(
     private val listView: RecyclerView,
     private val layoutInflater: LayoutInflater,
     private val browseAction: (MediaItem) -> Unit,
+    private val playAction: ((MediaItem) -> Unit)?,
     ) {
 
     init {
         listView.setHasFixedSize(true)  // "Size" here refers to widget size, not length of item list
         listView.layoutManager = LinearLayoutManager(listView.context)
-        listView.adapter = Adapter(::handleUserSelection, items)
+        listView.adapter = Adapter(::handleNavRequest, ::handlePlayRequest, items)
     }
 
     // Our use cases either involve a very small list (breadcrumbs), or else a complete change of the entire
@@ -33,24 +35,27 @@ class ItemChooser(
         listView.adapter?.notifyDataSetChanged()
     }
 
-    private class ButtonViewHolder(private val button: Button, private val itemList: List<MediaItem>): RecyclerView.ViewHolder(button) {
+    private inner class ButtonViewHolder(private val root: View, private val navigateButton: Button, private val playButton: Button, private val itemList: List<MediaItem>): RecyclerView.ViewHolder(root) {
 
         fun associateWithItem(itemPosition: Int) {
-            button.tag = itemPosition
-            button.text = itemList[itemPosition].mediaMetadata.title ?: "Unknown"
+            val item = itemList[itemPosition]
+            root.tag = itemPosition
+            navigateButton.text = item.mediaMetadata.title ?: "Unknown"
+            navigateButton.isActivated = item.mediaMetadata.isBrowsable?:false
+            playButton.visibility = if ((playAction != null) && (item.mediaMetadata.isPlayable == true )) View.VISIBLE else View.INVISIBLE
         }
 
         fun getItemIndex(): Int {
-            return (button.tag as? Int)!!
+            return (root.tag as? Int)!!
         }
     }
 
-    private inner class Adapter(val onClick: (Int) -> Unit, val itemList: List<MediaItem>): RecyclerView.Adapter<ButtonViewHolder>() {
+    private inner class Adapter(val navClick: (Int) -> Unit, val playClick: (Int) -> Unit, val itemList: List<MediaItem>): RecyclerView.Adapter<ButtonViewHolder>() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ButtonViewHolder {
             val binding = ChooserItemBinding.inflate(layoutInflater)
-            val button = binding.root
-            val holder = ButtonViewHolder(button, itemList)
-            button.setOnClickListener{_ -> onClick(holder.getItemIndex())}
+            val holder = ButtonViewHolder(binding.root, binding.navigateButton, binding.playButton, itemList)
+            binding.navigateButton.setOnClickListener{_ -> navClick(holder.getItemIndex())}
+            binding.playButton.setOnClickListener{_ -> playClick(holder.getItemIndex())}
             return holder
         }
 
@@ -63,7 +68,11 @@ class ItemChooser(
         }
     }
 
-    private fun handleUserSelection(itemIndex:Int) {
+    private fun handleNavRequest(itemIndex:Int) {
         browseAction(items[itemIndex])
+    }
+
+    private fun handlePlayRequest(itemIndex: Int) {
+        playAction?.invoke(items[itemIndex])
     }
 }

@@ -5,11 +5,9 @@ DONE Add database
 DONE Add full-library shuffle playback
 DONE Create custom player UI with better controls
 DONE Implement new play modes (locking, etc.)
+DONE Make functional library browser that can initiate new playback modes on player
 
---
 
-
-8) Make functional library browser that can initiate new playback modes on player
 
 ---
 Cleanup opportunities:
@@ -17,11 +15,15 @@ Cleanup opportunities:
 - Scanner needs to kick off automatically, without user needing to switch to the library UI!
 
 ---
+Better UI startup actions. User shouldn't have to switch to library before autonav works
+
 Keep adding missing features like locking, playback modes, etc.
   - Allow "early access" to database before first scan complete?
   - Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?
 
 How will we communicate non-standard info across app/service boundary, like double-shot weekend, and sequential mode, etc.?
+
+Better scrolling through long list of bands
 
 How will we save player state to persist across close/open? Or is that unimportant?
 ---

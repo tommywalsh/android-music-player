@@ -8,6 +8,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
+import com.google.common.collect.Lists
 import su.thepeople.musicplayer.databinding.FragmentCustomPlayerBinding
 
 typealias OnClick = (View)->Unit
@@ -20,7 +21,7 @@ typealias OnLongPress = (View)->Boolean
  *   - This is still incomplete. Not all buttons work, not all fields update on new songs.
  *   - Still looks terrible. Polish the UI, and use a "dark mode" styling to save battery.
  */
-class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: MediaController) {
+class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: MediaController, private val mainUI: MainActivity) {
 
     private val bandButton = binding.bandButton
     private val songLabel = binding.songLabel
@@ -42,12 +43,41 @@ class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: Med
         player.sendCustomCommand(SessionCommand(command, Bundle.EMPTY), Bundle.EMPTY)
     }
 
+    private fun navigateToCurrentBand() {
+        player.currentMediaItem?.mediaMetadata?.extras?.getInt("band")?.let {
+            mainUI.navigateTo(Lists.newArrayList(ROOT_ID, BANDS_ID), "band:$it")
+        }
+    }
+
+    private fun navigateToCurrentAlbum() {
+        player.currentMediaItem?.mediaMetadata?.extras?.getInt("album")?.let {albumId ->
+            player.currentMediaItem?.mediaMetadata?.extras?.getInt("band")?.let { bandId ->
+                mainUI.navigateTo(Lists.newArrayList(ROOT_ID, BANDS_ID, "band:$bandId"), "album:$albumId")
+            }
+        }
+    }
+
+    private fun navigateToCurrentSong() {
+        player.currentMediaItem?.mediaMetadata?.extras?.getInt("song")?.let {songId ->
+            player.currentMediaItem?.mediaMetadata?.extras?.getInt("band")?.let { bandId ->
+                val parentList = Lists.newArrayList(ROOT_ID, BANDS_ID, "band:$bandId")
+                val maybeAlbumId = player.currentMediaItem?.mediaMetadata?.extras?.getInt("album")
+                if (maybeAlbumId != null && maybeAlbumId > 0) {
+                    parentList.add("album:$maybeAlbumId")
+                }
+                mainUI.navigateTo(parentList, "song:$songId")
+            }
+        }
+    }
 
     private var togglePlayPause = withPlayer {if (isPlaying) {pause()} else {play()}}
     private var advanceSong: OnClick  = {player.seekToNextMediaItem()}
     private var toggleBandLock: OnClick = {sendCommand("band")}
     private var toggleAlbumLock: OnClick = {sendCommand("album")}
     private var advanceSubMode: OnLongPress = {sendCommand("submode"); true}
+    private var showBand: OnLongPress = {navigateToCurrentBand(); true}
+    private var showAlbum: OnLongPress = {navigateToCurrentAlbum(); true}
+    private var showSong: OnLongPress = {navigateToCurrentSong(); true}
 
     private val playbackStateListener = object: Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -69,11 +99,15 @@ class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: Med
 
     init {
         bandButton.setOnClickListener(toggleBandLock)
+        bandButton.setOnLongClickListener(showBand)
         albumButton.setOnClickListener(toggleAlbumLock)
+        albumButton.setOnLongClickListener(showAlbum)
         playPauseButton.setOnClickListener(togglePlayPause)
         playPauseButton.isLongClickable = true
         playPauseButton.setOnLongClickListener(advanceSubMode)
         nextButton.setOnClickListener(advanceSong)
+
+        songLabel.setOnLongClickListener(showSong)
 
         player.currentMediaItem?.let {updateSongInfo(it)}
         player.addListener(playbackStateListener)

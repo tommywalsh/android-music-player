@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import androidx.media3.common.MediaItem
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaBrowser
+import androidx.media3.session.MediaLibraryService
 import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
 
 /**
@@ -27,7 +28,7 @@ import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
  * operations are done, and then we create an associated "UI Implementation" object. That object actually handles all of the UI logic. That logic can
  * now be much more straightforward, because it knows that, by the time it starts running, ALL of the necessary setup work has already been performed.
  */
-class LibraryUI(private val context: Context) : Fragment() {
+class LibraryUI(private val context: Context, private val mainUI: MainActivity) : Fragment() {
 
     /*
      * These lateinit variables are set by async processes. We may activate the actual UI logic only when ALL of these are initialized.
@@ -53,6 +54,7 @@ class LibraryUI(private val context: Context) : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         binding = FragmentLibraryBinding.inflate(inflater, container, false)
+        this.inflater = inflater
         Log.d("LibraryUI", "View is being created")
         return binding.root
     }
@@ -76,7 +78,7 @@ class LibraryUI(private val context: Context) : Fragment() {
         // Once we have the handle to the backend object, we kick off an async process to get the library's root object.
         backendLibrary = newLibrary
         Log.d("LibraryUI", "Backend handle acquired. Now asking for root object")
-        backendLibrary.getLibraryRoot(null).onSuccess(context, this::onRootReceived)
+        backendLibrary.getLibraryRoot(MediaLibraryService.LibraryParams.Builder().build()).onSuccess(context, this::onRootReceived)
     }
 
     private fun onRootReceived(result: LibraryResult<MediaItem>) {
@@ -95,6 +97,12 @@ class LibraryUI(private val context: Context) : Fragment() {
     }
 
     private fun activate() {
-        impl = LibraryUIImpl(backendLibrary, rootItem, binding, inflater, context)
+        impl = LibraryUIImpl(backendLibrary, rootItem, binding, inflater, context, mainUI)
+    }
+
+    fun navigateTo(parentIds: List<String>, childId: String) {
+        if (::impl.isInitialized) {
+            impl.navigateTo(parentIds, childId)
+        }
     }
 }

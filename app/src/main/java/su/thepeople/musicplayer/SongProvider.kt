@@ -78,7 +78,7 @@ class AlbumSequentialProvider(private val albumId: Int, private var currentSongI
             }
             // Only filter the first time through!
             currentSongId = null
-            return if (foundCurrent) filteredSongs else unfilteredSongs
+            return if (filteredSongs.isEmpty()) unfilteredSongs else filteredSongs
         } else {
             return unfilteredSongs
         }

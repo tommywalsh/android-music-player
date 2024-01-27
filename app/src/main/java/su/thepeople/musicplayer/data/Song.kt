@@ -37,7 +37,7 @@ interface SongDao {
     fun getSongsForAlbum(albumId: Int): List<Song>
 
     @Query("SELECT * from song WHERE id = :songId")
-    fun get(songId: Int): Song
+    fun get(songId: Int): Song?
 
     @Query("SELECT * from song ORDER BY random() LIMIT 1")
     fun getRandomSong(): Song
