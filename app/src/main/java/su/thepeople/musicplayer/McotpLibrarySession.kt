@@ -164,7 +164,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             parentId == BANDS_ID -> {
                 return database.async {
                     val bands = database.bandDao().getAll()
-                    val items = bands.map {database.mediaItem(it)}.sortedBy { it.mediaMetadata.displayTitle.toString() }
+                    val items = bands.map {database.mediaItem(it)}
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
             }
@@ -172,9 +172,9 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 val bandId = internalId(parentId)
                 return database.async {
                     val albums = database.albumDao().getAllForBand(bandId)
-                    val albumItems = albums.map { database.mediaItem(it) }.sortedBy { it.mediaMetadata.displayTitle.toString() }
+                    val albumItems = albums.map { database.mediaItem(it) }
                     val looseSongs = database.songDao().getLooseSongsForBand(bandId)
-                    val songItems = looseSongs.map {database.mediaItem(it)}.sortedBy {it.mediaMetadata.displayTitle.toString()}
+                    val songItems = looseSongs.map {database.mediaItem(it)}
                     LibraryResult.ofItemList(ImmutableList.copyOf(albumItems + songItems), null)
                 }
             }
@@ -182,7 +182,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 val albumId = internalId(parentId)
                 return database.async {
                     val songs = database.songDao().getSongsForAlbum(albumId)
-                    val items = songs.map {database.mediaItem(it)}.sortedBy{it.mediaMetadata.displayTitle.toString()}
+                    val items = songs.map {database.mediaItem(it)}
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
             }
@@ -191,6 +191,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             }
         }
     }
+
     override fun onCustomCommand(
         session: MediaSession,
         controller: MediaSession.ControllerInfo,
@@ -216,5 +217,4 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         Log.d("Session", "Got command ${customCommand.customAction}")
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
-
 }

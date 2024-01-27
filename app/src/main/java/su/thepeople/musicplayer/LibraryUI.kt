@@ -45,6 +45,11 @@ class LibraryUI(private val context: Context, private val mainUI: MainActivity) 
     // This is the object that actually does the UI work
     private lateinit var impl: LibraryUIImpl
 
+    // We might get a navigation request BEFORE the UI has been finalized. In that case, we should remember the request until finalization.
+    private var startupParentIds: List<String>? = null
+    private var startupChildId: String? = null
+
+
     /**
      * This method's job is simply to "inflate" our UI widgets and grab handles to them. The entire view creation process might not be completed yet
      * when this is called.
@@ -98,11 +103,19 @@ class LibraryUI(private val context: Context, private val mainUI: MainActivity) 
 
     private fun activate() {
         impl = LibraryUIImpl(backendLibrary, rootItem, binding, inflater, context, mainUI)
+        startupParentIds?.let {parentIds ->
+            startupChildId?.let {childId ->
+                impl.navigateTo(parentIds, childId)
+            }
+        }
     }
 
     fun navigateTo(parentIds: List<String>, childId: String) {
         if (::impl.isInitialized) {
             impl.navigateTo(parentIds, childId)
+        } else {
+            startupParentIds = parentIds
+            startupChildId = childId
         }
     }
 }

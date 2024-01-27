@@ -30,7 +30,7 @@ data class Song(
 
 @Dao
 interface SongDao {
-    @Query("SELECT * from song WHERE bandId = :bandId and albumId IS NULL")
+    @Query("SELECT * from song WHERE bandId = :bandId and albumId IS NULL ORDER BY year, name")
     fun getLooseSongsForBand(bandId: Int): List<Song>
 
     @Query("SELECT * from song WHERE albumId = :albumId ORDER BY albumTrackNum")

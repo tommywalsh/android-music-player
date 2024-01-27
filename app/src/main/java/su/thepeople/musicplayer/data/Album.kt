@@ -26,7 +26,7 @@ data class Album (
 
 @Dao
 interface AlbumDao {
-    @Query("SELECT * from album WHERE bandId = :bandId")
+    @Query("SELECT * from album WHERE bandId = :bandId ORDER BY year, name")
     fun getAllForBand(bandId: Int): List<Album>
 
     @Query("SELECT * from album WHERE id = :albumId")

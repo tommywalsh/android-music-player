@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionCommand
+import androidx.recyclerview.widget.LinearLayoutManager
 import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
 
 /**
@@ -34,6 +35,7 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
     // UI widgets
     private var childrenWidget = uiBinding.itemList
     private var breadcrumbWidget = uiBinding.breadcrumbs
+    private var titleWidget = uiBinding.title
 
     // Helpers to handle coordination between the on-screen lists and the state of the UI
     private val model = LibraryViewModel()
@@ -41,6 +43,8 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
     private var breadcrumbChooser = ItemChooser(model.breadcrumbStack, breadcrumbWidget, inflater, { backupTo(it) }, null)
 
     init {
+        val horizManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        breadcrumbWidget.layoutManager = horizManager
         jumpToRoot()
     }
 
@@ -53,11 +57,17 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
         }
     }
 
+    private fun setCurrent(item: MediaItem?) {
+        model.currentItem = item
+        val newText = item?.mediaMetadata?.displayTitle ?: ""
+        titleWidget.text = newText
+    }
+
     private fun browseTo(item: MediaItem) {
         val id = item.mediaId
         Log.d("LibraryFragment", "Browsing from ${model.currentItem?.mediaMetadata?.title} to ${item.mediaMetadata.title}")
         model.breadcrumbStack.addFirst(model.currentItem!!)
-        model.currentItem = item
+        setCurrent(item)
         loadChildren(id)
         Log.d("LibraryUI", "Current item is now ${model.currentItem?.mediaMetadata?.title}")
         Log.d("LibraryUI", "Breadcrumbs have ${model.breadcrumbStack.size} items")
@@ -74,7 +84,7 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
         if (lastPopped == null) {
             jumpToRoot()
         } else {
-            model.currentItem = lastPopped
+            setCurrent(lastPopped)
             loadChildren(lastPopped.mediaId)
         }
         Log.d("LibraryUI", "Current item is now ${model.currentItem?.mediaMetadata?.title}")
@@ -92,7 +102,7 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
 
     private fun jumpToRoot() {
         loadChildren(rootItem.mediaId)
-        model.currentItem = rootItem
+        setCurrent(rootItem)
         model.breadcrumbStack.clear()
     }
 
@@ -105,7 +115,7 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
             backendLibrary.getChildren(childId, 0, Int.MAX_VALUE, null).onSuccess(context) { childrenResult ->
                 Log.d("LibraryUIImpl", "Received async response for children of $childId")
                 model.currentItem?.let{id -> model.breadcrumbStack.add(0, id)}
-                model.currentItem = newItem
+                setCurrent(newItem)
                 model.childItems.clear()
                 model.childItems.addAll(childrenResult.value!!)
                 if (afterTask != null) {
@@ -123,7 +133,6 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
     }
 
     inner class OfflineNavigationTask(parentIds: List<String>, childId: String) {
-        //private val navigationTargets: ArrayList<String> = Lists.newArrayList<String>(ROOT_ID, BANDS_ID, bandId)
         private val navigationTargets = ArrayList<String>()
         private val focusTarget = childId
         init {
@@ -132,7 +141,7 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
 
         fun kickoff() {
             model.breadcrumbStack.clear()
-            model.currentItem = null
+            setCurrent(null)
             model.childItems.clear()
             runNextTask()
         }

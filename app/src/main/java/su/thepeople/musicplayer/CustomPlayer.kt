@@ -56,7 +56,6 @@ class CustomPlayer(private val database: Database, private val context: Context)
     private fun appendSongBatch(songs: List<MediaItem>) {
         androidPlayer.addMediaItems(songs)
         androidPlayer.prepare()
-        //androidPlayer.play() // TODO: keep track of if we're paused to decide if we should play here
     }
 
     private fun playSongBatchNext(songs: List<MediaItem>) {

@@ -18,7 +18,7 @@ data class Band (
 
 @Dao
 interface BandDao {
-    @Query("SELECT * from band")
+    @Query("SELECT * from band ORDER BY name")
     fun getAll(): List<Band>
 
     @Query("SELECT * from band WHERE id = :id")

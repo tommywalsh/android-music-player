@@ -94,7 +94,7 @@ class MainActivity : FragmentActivity() {
     }
 
     fun navigateTo(parentIds: List<String>, childId: String) {
-        libraryUI.navigateTo(parentIds, childId)
         viewPager.currentItem = 1
+        libraryUI.navigateTo(parentIds, childId)
     }
 }
