@@ -1,6 +1,11 @@
 package su.thepeople.musicplayer
 
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -65,6 +70,14 @@ class MainActivity : FragmentActivity() {
         connectionFinalizeCallback.addListener(::onBackendConnectionFinalized, ContextCompat.getMainExecutor(this))
     }
 
+    private val silencer = object: BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                backendConnection?.pause()
+            }
+        }
+    }
+
     private fun onBackendConnectionFinalized() {
 
         // Dispose of our old connection, if necessary
@@ -77,6 +90,8 @@ class MainActivity : FragmentActivity() {
         // ... and supply the connection (which acts as both a player and a library) to our UI fragments
         playerUI.setPlayer(mb)
         libraryUI.setBackendLibrary(mb)
+
+        registerReceiver(silencer, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
     }
 
     override fun onStop() {
@@ -87,6 +102,12 @@ class MainActivity : FragmentActivity() {
         backendConnection?.release()
         backendConnection = null
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(silencer)
+
+        super.onDestroy()
     }
 
     fun navigateToPlayer() {
