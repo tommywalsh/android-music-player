@@ -1,19 +1,30 @@
 package su.thepeople.musicplayer
 
 import android.util.Log
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ALBUM
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
 import kotlin.random.Random
 
-fun interface SongProvider {
+abstract class SongProvider {
     // Subclasses must implement this function.
     // TODO: should there be a way for an implementation to signal that there are no more songs?
-    fun getNextBatch(database: Database): List<Song>
+    abstract fun getNextBatch(database: Database): List<Song>
+
+    abstract val mode: MajorMode
+    abstract val mediaType: Int // From Android's MediaMetadata.MEDIA_TYPE_XXX definitions
+    open val subTypeLabel = ""
 }
 
 const val PREFERRED_BATCH_SIZE = 10
 
-class ShuffleProvider: SongProvider {
+class ShuffleProvider: SongProvider() {
+    override val mode = MajorMode.COLLECTION
+    override val mediaType = MEDIA_TYPE_MIXED
+
     /**
      * There are three techniques for selecting a random song:
      * 1) "unweighted". Put all the songs into a box and choose one at random.
@@ -54,41 +65,107 @@ class ShuffleProvider: SongProvider {
     }
 }
 
-class BandShuffleProvider(private val bandId: Int): SongProvider {
+class BandShuffleProvider(private val bandId: Int): SongProvider() {
+    override val mode = MajorMode.BAND
+    override val mediaType = MEDIA_TYPE_ARTIST
+
     override fun getNextBatch(database: Database): List<Song> {
         return database.songDao().getRandomSongsForBand(bandId, PREFERRED_BATCH_SIZE)
     }
 }
 
-class AlbumSequentialProvider(private val albumId: Int, private var currentSongId: Int? = null): SongProvider {
+open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int): SongProvider() {
+    override val mode = MajorMode.YEAR
+    override val mediaType = MEDIA_TYPE_YEAR
     override fun getNextBatch(database: Database): List<Song> {
-        val unfilteredSongs = database.songDao().getSongsForAlbum(albumId)
-        // TODO: pick up playing album after current song, if it was given
-        if (currentSongId != null) {
-            val filteredSongs = ArrayList<Song>()
-            var foundCurrent = false
-            unfilteredSongs.forEach {
-                if (foundCurrent) {
-                    filteredSongs.add(it)
-                } else {
-                    if (it.id == currentSongId) {
-                        foundCurrent = true
-                    }
-                }
+        return database.songDao().getSongsForYearRange(startYear, endYear, PREFERRED_BATCH_SIZE)
+    }
+}
+
+class DecadeShuffleProvider(startYear: Int): YearRangeShuffleProvider(startYear, startYear + 9)
+class YearShuffleProvider(year: Int): YearRangeShuffleProvider(year, year)
+
+class AlbumSequentialProvider(private val albumId: Int, private var currentSongId: Int? = null): SongProvider() {
+    override val mode = MajorMode.ALBUM
+    override val mediaType = MEDIA_TYPE_ALBUM
+
+    /**
+     * This provider has two modes:
+     * - Play the album all the way through, from the start, then terminate
+     * - Play the end of the album, after the given starting song. Then, play the beginning of the album, before the starting song. Then terminate.
+     */
+
+    private var isCompleted = false
+
+    private fun getFullAlbum(database: Database): List<Song> {
+        return database.songDao().getSongsForAlbum(albumId)
+    }
+
+    private fun getPartitionedAlbum(database: Database, partitionId: Int): List<Song> {
+        val fullAlbum = getFullAlbum(database)
+        val earlyAlbum = ArrayList<Song>()
+        val lateAlbum = ArrayList<Song>()
+        var workingList = earlyAlbum
+        fullAlbum.forEach{ song ->
+            if (song.id == partitionId) {
+                // We've completed the early part of the album. Next song will be on the late part.
+                workingList = lateAlbum
+            } else {
+                workingList.add(song)
             }
-            // Only filter the first time through!
-            currentSongId = null
-            return if (filteredSongs.isEmpty()) unfilteredSongs else filteredSongs
+        }
+        return lateAlbum + earlyAlbum
+    }
+
+    override fun getNextBatch(database: Database): List<Song> {
+        return if (isCompleted) {
+            Log.d("SongProvider", "Album provider has already completed.")
+            ArrayList()
         } else {
-            return unfilteredSongs
+            isCompleted = true
+            Log.d("SongProvider", "Album provider starting.")
+            currentSongId?.let{id->getPartitionedAlbum(database, id)} ?: getFullAlbum(database)
         }
     }
 }
 
-class DoubleShotProvider: SongProvider {
+class DoubleShotProvider: SongProvider() {
+    override val mode = MajorMode.COLLECTION
+    override val mediaType = MEDIA_TYPE_MIXED
+    companion object {
+        const val subType = "Double-Shot Weekend"
+    }
+    override val subTypeLabel: String
+        get() {return subType}
+
+
     override fun getNextBatch(database: Database): List<Song> {
         val band = database.bandDao().getRandomBand()
         Log.d("SongProvider", "Requesting 2 songs for band ${band.id} ${band.name}")
         return database.songDao().getRandomSongsForBand(band.id, 2)
+    }
+}
+
+class BlockPartyProvider: SongProvider() {
+    override val mode = MajorMode.COLLECTION
+    override val mediaType = MEDIA_TYPE_MIXED
+    companion object {
+        const val subType = "Block Party Weekend"
+        private const val blockSize = 5
+    }
+    override val subTypeLabel: String
+        get() {return subType}
+
+    private var doBlockNext = true
+
+    override fun getNextBatch(database: Database): List<Song> {
+        val songs = if (doBlockNext) {
+            val band = database.bandDao().getRandomBand()
+            database.songDao().getRandomSongsForBand(band.id, blockSize)
+        } else {
+            database.songDao().getRandomSongs(blockSize)
+        }
+        doBlockNext = !doBlockNext
+        return songs
     }
 }

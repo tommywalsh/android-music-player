@@ -42,6 +42,9 @@ interface SongDao {
     @Query("SELECT * from song ORDER BY random() LIMIT 1")
     fun getRandomSong(): Song
 
+    @Query("SELECT * from song ORDER BY random() LIMIT :maxSongs")
+    fun getRandomSongs(maxSongs: Int): List<Song>
+
     @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT :maxSongs")
     fun getRandomSongsForBand(bandId: Int, maxSongs: Int): List<Song>
 
@@ -50,6 +53,15 @@ interface SongDao {
 
     @Query("SELECT * from song WHERE albumId = :albumId ORDER BY random() LIMIT 1")
     fun getRandomSongForAlbum(albumId: Int): Song
+
+    @Query("SELECT DISTINCT (year/10)*10 from Song WHERE year > 1900 ORDER BY year")
+    fun getDecades(): List<Int>
+
+    @Query("SELECT DISTINCT CAST(year AS integer) from Song WHERE year >= :decade AND year < :decade + 10 ORDER BY year")
+    fun getYearsForDecade(decade: Int): List<Int>
+
+    @Query("SELECT * from song WHERE year >= :startYear AND year <= :endYear ORDER BY random() LIMIT :maxSongs")
+    fun getSongsForYearRange(startYear: Int, endYear: Int, maxSongs: Int): List<Song>
 
     @Insert
     fun insert(song: Song): Long

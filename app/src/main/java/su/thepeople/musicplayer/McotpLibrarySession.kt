@@ -22,12 +22,14 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import su.thepeople.musicplayer.data.ALBUM_PREFIX
 import su.thepeople.musicplayer.data.BAND_PREFIX
+import su.thepeople.musicplayer.data.DECADE_PREFIX
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.SONG_PREFIX
 import su.thepeople.musicplayer.data.internalId
 
-const val BANDS_ID = "root:bands"
 const val ROOT_ID = "root"
+const val BANDS_ID = "root:bands"
+const val YEARS_ID = "root:years"
 
 /**
  * This class represents a "MediaLibrarySession.Callback". Despite that name, this class serves as a navigation API.  All bands/albums/songs are
@@ -69,7 +71,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
     }
 
     /**
-     * This object represents the root item when navigating via bands. This object will have one child for each band in the collection.
+     * This object represents each of the root library items. Each shows a different view into the library.
      */
     private val bandsItem = MediaItem.Builder()
         .setMediaId(BANDS_ID)
@@ -82,12 +84,24 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             .build())
         .build()
 
+    private val yearsItem = MediaItem.Builder()
+        .setMediaId(YEARS_ID)
+        .setMediaMetadata(MediaMetadata.Builder()
+            .setMediaType(MEDIA_TYPE_MUSIC)
+            .setDisplayTitle("Years")
+            .setTitle("Years")
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .build())
+        .build()
+
     @OptIn(UnstableApi::class)
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): ConnectionResult {
         // TODO: Audit these default commands and see if they really all apply
         val sessionCommands = ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             .add(SessionCommand("band", Bundle.EMPTY))
             .add(SessionCommand("album", Bundle.EMPTY))
+            .add(SessionCommand("year", Bundle.EMPTY))
             .add(SessionCommand("submode", Bundle.EMPTY))
             .add(SessionCommand("play-item", Bundle.EMPTY))
             .build()
@@ -118,6 +132,12 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             }
             mediaId == BANDS_ID -> {
                 Futures.immediateFuture(LibraryResult.ofItem(bandsItem, null))
+            }
+            mediaId == YEARS_ID -> {
+                Futures.immediateFuture(LibraryResult.ofItem(yearsItem, null))
+            }
+            mediaId.startsWith(DECADE_PREFIX) -> {
+                Futures.immediateFuture(LibraryResult.ofItem(decadeItem(internalId(mediaId)), null))
             }
             mediaId.startsWith(BAND_PREFIX) -> {
                 val bandId = internalId(mediaId)
@@ -150,6 +170,33 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         }
     }
 
+    private fun decadeItem(decade: Int): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setIsBrowsable(true)
+            .setIsPlayable(true)
+            .setTitle("${decade}s")
+            .setDisplayTitle("${decade}s")
+            .build()
+        return MediaItem.Builder()
+            .setMediaId("decade:$decade")
+            .setMediaMetadata(metadata)
+            .build()
+
+    }
+
+    private fun yearItem(year: Int): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .setTitle("$year")
+            .setDisplayTitle("$year")
+            .build()
+        return MediaItem.Builder()
+            .setMediaId("year:$year")
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
     override fun onGetChildren(
         session: MediaLibraryService.MediaLibrarySession,
         controller: MediaSession.ControllerInfo,
@@ -159,12 +206,26 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         return when {
             parentId == ROOT_ID -> {
-                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem), null))
+                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem, yearsItem), null))
             }
             parentId == BANDS_ID -> {
                 return database.async {
                     val bands = database.bandDao().getAll()
                     val items = bands.map {database.mediaItem(it)}
+                    LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
+                }
+            }
+            parentId == YEARS_ID -> {
+                return database.async {
+                    val decades = database.songDao().getDecades()
+                    val items = decades.map(::decadeItem)
+                    LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
+                }
+            }
+            parentId.startsWith(DECADE_PREFIX) -> {
+                return database.async {
+                    val years = database.songDao().getYearsForDecade(internalId(parentId))
+                    val items = years.map(::yearItem)
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
             }
@@ -204,6 +265,9 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             }
             "album" -> {
                 player.changeAlbumLock()
+            }
+            "year" -> {
+                player.changeYearLock()
             }
             "submode" -> {
                 player.changeSubMode()

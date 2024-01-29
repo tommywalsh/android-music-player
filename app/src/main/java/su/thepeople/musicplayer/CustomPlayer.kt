@@ -1,11 +1,10 @@
 package su.thepeople.musicplayer
 
 import android.content.Context
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ALBUM
-import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -13,10 +12,11 @@ import com.google.common.util.concurrent.Futures
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.internalId
 
-private enum class MajorMode {
+enum class MajorMode {
     COLLECTION,
     BAND,
-    ALBUM
+    ALBUM,
+    YEAR
 }
 
 /**
@@ -32,8 +32,6 @@ class CustomPlayer(private val database: Database, private val context: Context)
     private val androidPlayer = ExoPlayer.Builder(context).build()
 
     private var provider: SongProvider = ShuffleProvider()
-    private var majorMode = MajorMode.COLLECTION
-    private var subMode = "shuffle"  // TODO: There has to be a better way to do this than just a string
 
     val playerAPIHandler: Player = androidPlayer
 
@@ -58,19 +56,27 @@ class CustomPlayer(private val database: Database, private val context: Context)
         androidPlayer.prepare()
     }
 
-    private fun playSongBatchNext(songs: List<MediaItem>) {
-        appendSongBatch(songs)
+    private fun onIncomingSongBatch(songs: List<MediaItem>, playNow: Boolean) {
+        Log.d("Player", "Received song list with ${songs.size} items")
+        if (songs.isEmpty()) {
+            // An empty song list is a signal that the provider has completed its work and should be swapped out
+            Log.d("Player", "Swapping back to shuffle provider")
+            androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
+            swapProvider(ShuffleProvider(), playNow)
+        } else {
+            appendSongBatch(songs)
 
-        // Clear out any stale songs from the front of the playlist that we've already played.
-        val lastPlayedIndex = androidPlayer.nextMediaItemIndex - 2
-        if (lastPlayedIndex > 0) {
-            androidPlayer.removeMediaItems(0, lastPlayedIndex)
+            // Clear out any stale songs from the front of the playlist that we've already played.
+            val lastPlayedIndex = androidPlayer.nextMediaItemIndex - 2
+            if (lastPlayedIndex > 0) {
+                androidPlayer.removeMediaItems(0, lastPlayedIndex)
+            }
+
+            if (playNow) {
+                Log.d("Player", "Playing new batch immediately")
+                androidPlayer.seekToNextMediaItem()
+            }
         }
-    }
-
-    private fun playSongBatchNow(songs: List<MediaItem>) {
-        androidPlayer.clearMediaItems()
-        appendSongBatch(songs)
     }
 
     private fun requestNextBatch(playNow: Boolean) {
@@ -80,12 +86,16 @@ class CustomPlayer(private val database: Database, private val context: Context)
         }
         Futures.addCallback(
             future,
-            successCallback(if (playNow) ::playSongBatchNow else ::playSongBatchNext),
+            successCallback{ songs -> onIncomingSongBatch(songs, playNow)},
             ContextCompat.getMainExecutor(context))
     }
 
     private fun swapProvider(newProvider: SongProvider, switchNow: Boolean) {
         provider = newProvider
+        androidPlayer.playlistMetadata = MediaMetadata.Builder()
+            .setMediaType(provider.mediaType)
+            .setTitle(provider.subTypeLabel)
+            .build()
 
         // Clear out any stray songs in the "still to play" portion of the playlist
         val nextIndex = androidPlayer.nextMediaItemIndex
@@ -96,51 +106,54 @@ class CustomPlayer(private val database: Database, private val context: Context)
     }
 
     fun changeBandLock(forceBandId: Int? = null) {
-        if (forceBandId != null || majorMode != MajorMode.BAND) {
+        if (forceBandId != null || provider.mode != MajorMode.BAND) {
             val bandId = forceBandId?:androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("band")
             if (bandId != null) {
-                majorMode = MajorMode.BAND
                 swapProvider(BandShuffleProvider(bandId), forceBandId != null)
                 forceBandId?.let{ androidPlayer.seekToNextMediaItem() }
-                androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_ARTIST).build()
             }
         } else {
-            majorMode = MajorMode.COLLECTION
             swapProvider(ShuffleProvider(), false)
-            androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
+        }
+    }
 
+    fun changeYearLock() {
+        val year = androidPlayer.currentMediaItem?.mediaMetadata?.releaseYear
+        if (year == null || provider.mode == MajorMode.YEAR) {
+            swapProvider(ShuffleProvider(), false)
+        } else {
+            swapProvider(YearShuffleProvider(year), false)
         }
     }
 
     fun changeAlbumLock(forceAlbumId: Int? = null) {
         // If an album is passed in, then we lock on that album
         // If not, then we toggle between album and shuffle mode
-        if (forceAlbumId != null || majorMode != MajorMode.ALBUM) {
+        if (forceAlbumId != null || provider.mode != MajorMode.ALBUM) {
             val albumId = forceAlbumId?:androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("album")
             val songId = androidPlayer.currentMediaItem?.mediaId?.let{internalId(it)}
             if (albumId != null && albumId != 0) {
-                majorMode = MajorMode.ALBUM
                 swapProvider(AlbumSequentialProvider(albumId, songId), forceAlbumId != null)
                 forceAlbumId?.let{ androidPlayer.seekToNextMediaItem()}
-                androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_ALBUM).build()
             }
         } else {
-            majorMode = MajorMode.COLLECTION
             swapProvider(ShuffleProvider(), false)
-            androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
         }
     }
 
     fun changeSubMode() {
-        if (majorMode == MajorMode.COLLECTION) {
-            if (subMode == "shuffle") {
-                subMode = "double-shot"
-                swapProvider(DoubleShotProvider(), false)
-                androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
-            } else {
-                subMode = "shuffle"
-                swapProvider(ShuffleProvider(), false)
-                androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
+        // TODO: Should we have a mode interface, where each main mode knows its default submode, plus full list of submodes?
+        if (provider.mode == MajorMode.COLLECTION) {
+            when (provider.subTypeLabel) {
+                DoubleShotProvider.subType -> {
+                    swapProvider(BlockPartyProvider(), false)
+                }
+                BlockPartyProvider.subType -> {
+                    swapProvider(ShuffleProvider(), false)
+                }
+                else -> {
+                    swapProvider(DoubleShotProvider(), false)
+                }
             }
         }
     }
@@ -155,6 +168,12 @@ class CustomPlayer(private val database: Database, private val context: Context)
             "album" -> {
                 changeAlbumLock(id)
             }
+            "decade" -> {
+                swapProvider(DecadeShuffleProvider(id), true)
+            }
+            "year" -> {
+                swapProvider(YearShuffleProvider(id), true)
+            }
             "song" -> {
                 database.async {
                     database.songDao().get(id)?.let {
@@ -166,7 +185,6 @@ class CustomPlayer(private val database: Database, private val context: Context)
                         // For now, though, we just force ourselves into shuffle mode every time
                         androidPlayer.setMediaItem(item)
                         swapProvider(ShuffleProvider(), false)
-                        androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
                     }
                 }
             }

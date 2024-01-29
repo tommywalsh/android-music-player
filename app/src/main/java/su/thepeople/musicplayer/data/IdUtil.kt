@@ -11,6 +11,8 @@ package su.thepeople.musicplayer.data
 const val BAND_PREFIX = "band:"
 const val ALBUM_PREFIX = "album:"
 const val SONG_PREFIX = "song:"
+const val DECADE_PREFIX = "decade:"
+const val YEAR_PREFIX = "year:"
 
 /**
  * These extension functions convert an internal integer ID to an external string ID

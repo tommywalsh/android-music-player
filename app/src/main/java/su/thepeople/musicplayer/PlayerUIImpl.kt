@@ -76,6 +76,7 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
     private var advanceSong: OnClick  = {player.seekToNextMediaItem()}
     private var toggleBandLock: OnClick = {sendCommand("band")}
     private var toggleAlbumLock: OnClick = {sendCommand("album")}
+    private var toggleYearLock: OnClick = {sendCommand("year")}
     private var advanceSubMode: OnLongPress = {sendCommand("submode"); true}
     private var showBand: OnLongPress = {navigateToCurrentBand(); true}
     private var showAlbum: OnLongPress = {navigateToCurrentAlbum(); true}
@@ -88,6 +89,7 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
         val buttonToCheck: TextView? = when (mediaType) {
             MediaMetadata.MEDIA_TYPE_ARTIST -> bandButton
             MediaMetadata.MEDIA_TYPE_ALBUM -> albumButton
+            MediaMetadata.MEDIA_TYPE_YEAR -> yearButton
             else -> null
         }
 
@@ -110,6 +112,7 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
         override fun onPlaylistMetadataChanged(mediaMetadata: MediaMetadata) {
             Log.d("PlayerUI", "Playlist metadata changed, with media type ${mediaMetadata.mediaType}")
             setButtonStylesForMediaType(mediaMetadata.mediaType?:0)
+            mediaMetadata.title?.let{modeLabel.text = it}
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -122,6 +125,7 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
         bandButton.setOnLongClickListener(showBand)
         albumButton.setOnClickListener(toggleAlbumLock)
         albumButton.setOnLongClickListener(showAlbum)
+        yearButton.setOnClickListener(toggleYearLock)
         playPauseButton.setOnClickListener(togglePlayPause)
         playPauseButton.isLongClickable = true
         playPauseButton.setOnLongClickListener(advanceSubMode)

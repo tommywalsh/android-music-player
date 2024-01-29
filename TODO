@@ -7,6 +7,7 @@ DONE Create custom player UI with better controls
 DONE Implement new play modes (locking, etc.)
 DONE Make functional library browser that can initiate new playback modes on player
 DONE Improve UI
+DONE More play modes
 
 ---
 
@@ -15,6 +16,7 @@ DONE Improve UI
 Cleanup opportunities:
 - Audit TODOs and "future directions"
 - Scanner needs to kick off automatically, without user needing to switch to the library UI!
+- separate packages for UI and backend
 
 ---
 - Allow "early access" to database before first scan complete?
@@ -25,6 +27,9 @@ Cleanup opportunities:
 How will we communicate non-standard info across app/service boundary, like double-shot weekend, and sequential mode, etc.?
 
 How to deal with sorting multiple releases in the same year?
+We will need this for band sequential mode
+
+
 How to deal with band names not matching directory names (Anthrax, The Smiths, R.E.M.)?
 
 Better scrolling through long list of bands
@@ -37,5 +42,3 @@ DEFERRED Playback behaves differently for:
     - DB fully initialized and idle
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
 
-DEFERRED
-- less-used modes: year, decade, block party, band sequential
