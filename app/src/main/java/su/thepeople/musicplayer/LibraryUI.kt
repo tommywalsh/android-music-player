@@ -11,7 +11,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.MediaLibraryService
-import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
+import su.thepeople.musicplayer.databinding.LibraryUiBinding
 
 /**
  * This UI Wrapper exists solely to manage the setup of the library UI.  Setup is a bit complicated, because we have two asynchronous operations:
@@ -33,7 +33,7 @@ class LibraryUI(private val context: Context, private val mainUI: MainActivity) 
     /*
      * These lateinit variables are set by async processes. We may activate the actual UI logic only when ALL of these are initialized.
      */
-    private lateinit var binding: FragmentLibraryBinding
+    private lateinit var binding: LibraryUiBinding
     private lateinit var inflater: LayoutInflater
     private lateinit var backendLibrary: MediaBrowser
     private lateinit var rootItem: MediaItem
@@ -58,7 +58,7 @@ class LibraryUI(private val context: Context, private val mainUI: MainActivity) 
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = FragmentLibraryBinding.inflate(inflater, container, false)
+        binding = LibraryUiBinding.inflate(inflater, container, false)
         this.inflater = inflater
         Log.d("LibraryUI", "View is being created")
         return binding.root

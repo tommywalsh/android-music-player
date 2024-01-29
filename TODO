@@ -6,7 +6,9 @@ DONE Add full-library shuffle playback
 DONE Create custom player UI with better controls
 DONE Implement new play modes (locking, etc.)
 DONE Make functional library browser that can initiate new playback modes on player
+DONE Improve UI
 
+---
 
 
 ---
@@ -15,9 +17,10 @@ Cleanup opportunities:
 - Scanner needs to kick off automatically, without user needing to switch to the library UI!
 
 ---
-Keep adding missing features like locking, playback modes, etc.
-  - Allow "early access" to database before first scan complete?
-  - Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?
+- Allow "early access" to database before first scan complete?
+- Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?
+- Make selection button stretch to side of screen in library mode
+- Make sure library scrolls to correct screen location on navigation from player
 
 How will we communicate non-standard info across app/service boundary, like double-shot weekend, and sequential mode, etc.?
 
@@ -26,7 +29,6 @@ How to deal with band names not matching directory names (Anthrax, The Smiths, R
 
 Better scrolling through long list of bands
 
-How will we save player state to persist across close/open? Or is that unimportant?
 ---
 DEFERRED Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
 DEFERRED Playback behaves differently for:

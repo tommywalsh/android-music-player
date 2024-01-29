@@ -6,7 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.media3.session.MediaController
-import su.thepeople.musicplayer.databinding.FragmentCustomPlayerBinding
+import su.thepeople.musicplayer.databinding.PlayerUiBinding
 
 /**
  * This class wraps the UI for our music player.
@@ -20,7 +20,7 @@ class PlayerUI(private val mainUI: MainActivity) : Fragment() {
      * The binding and player objects are initialized by async processes that may finish in either order. We may set up and activate the actual
      * implementation only after BOTH binding and player objects are initialized.
      */
-    private lateinit var binding: FragmentCustomPlayerBinding
+    private lateinit var binding: PlayerUiBinding
     private lateinit var player: MediaController
     private lateinit var impl: PlayerUIImpl
 
@@ -28,7 +28,7 @@ class PlayerUI(private val mainUI: MainActivity) : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = FragmentCustomPlayerBinding.inflate(inflater, container, false)
+        binding = PlayerUiBinding.inflate(inflater, container, false)
         if (this::player.isInitialized) {
             activate()
         }

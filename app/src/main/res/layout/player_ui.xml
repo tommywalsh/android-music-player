@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/black"
+    android:textColor="@color/near_white"
     android:layout_weight="1"
     android:orientation="vertical"
     >
 
-    <ToggleButton
+    <TextView
         android:id="@+id/bandButton"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:text="Band Name"
-        android:textOn="Band Name"
-        android:textOff="Band Name"
+        android:theme="@style/UnlockedButton"
         />
 
     <TextView
@@ -22,7 +23,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:text="Song Title"
+        android:text="@string/ph_song"
         android:ellipsize="marquee"
         android:gravity="center_horizontal|center_vertical"
         android:marqueeRepeatLimit="marquee_forever"
@@ -36,32 +37,36 @@
         android:orientation="horizontal"
         >
 
-        <ToggleButton
+        <TextView
             android:id="@+id/yearLabel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="3"
-            android:text="Year"
-            android:textOn="Year"
-            android:textOff="Year"
+            android:theme="@style/UnlockedButton"
+            tools:ignore="NestedWeights"/>
+
+        <Space
+            android:layout_width="5dp"
+            android:layout_height="match_parent"
+            android:background="@color/black"
             />
 
-        <ToggleButton
+        <TextView
             android:id="@+id/albumLabel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Album Title"
-            android:textOn="Album Title"
-            android:textOff="Album Title"
+            android:theme="@style/UnlockedButton"
+            tools:ignore="NestedWeights"
             />
+
     </LinearLayout>
 
     <TextView
         android:id="@+id/modeLabel"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="Play Mode"
+        android:text="@string/ph_mode"
         android:layout_weight="1"
         android:ellipsize="marquee"
         android:gravity="center_horizontal|center_vertical"
@@ -76,13 +81,16 @@
         android:orientation="horizontal"
         >
 
-        <Button
+        <ImageView
             android:id="@+id/playPauseButton"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="Play/Pause"
             android:layout_weight="1"
-            />
+            android:theme="@style/UnlockedButton"
+            android:src="@drawable/ic_play_button"
+            android:contentDescription="@string/desc_play_button"
+            tools:ignore="NestedWeights"
+        />
 
         <Space
             android:layout_width="match_parent"
@@ -90,12 +98,14 @@
             android:layout_weight="1"
             />
 
-        <Button
+        <ImageView
             android:id="@+id/nextButton"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="Next"
             android:layout_weight="1"
+            android:theme="@style/UnlockedButton"
+            android:src="@drawable/ic_next_button"
+            android:contentDescription="@string/desc_forward_button"
             />
     </LinearLayout>
 </LinearLayout>

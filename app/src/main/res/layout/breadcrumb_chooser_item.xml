@@ -7,26 +7,28 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <Button
-        android:id="@+id/playButton"
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_weight="4"
-        android:text="Play"
+        android:theme="@style/UnlockedButton"
+        android:text="@string/breadcrumb_separator"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/navigateButton"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         />
 
-    <Button
+    <TextView
         android:id="@+id/navigateButton"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="Title"
-        app:layout_constraintStart_toEndOf="@id/playButton"
+        android:theme="@style/UnlockedButton"
+        android:text="@string/ph_item"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

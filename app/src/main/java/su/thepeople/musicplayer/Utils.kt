@@ -21,5 +21,3 @@ fun <T> successCallback(task: (T)->Unit): FutureCallback<T> {
 fun <T> ListenableFuture<T>.onSuccess(context: Context, callback: (T) -> Unit) {
     Futures.addCallback(this, successCallback(callback), ContextCompat.getMainExecutor(context))
 }
-
-

@@ -7,8 +7,7 @@ import android.view.LayoutInflater
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionCommand
-import androidx.recyclerview.widget.LinearLayoutManager
-import su.thepeople.musicplayer.databinding.FragmentLibraryBinding
+import su.thepeople.musicplayer.databinding.LibraryUiBinding
 
 /**
  * Helper class to keep track of the current navigational state.
@@ -30,7 +29,7 @@ class LibraryViewModel {
  *   - Users should be able to change what's playing by navigating to an item and selecting it.
  *   - There may even be multiple ways to "play" the same item (e.g. select a band to shuffle vs. all of their songs sequentially)
  */
-class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootItem: MediaItem, uiBinding: FragmentLibraryBinding, inflater: LayoutInflater, private val context: Context, private val mainUi: MainActivity) {
+class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootItem: MediaItem, uiBinding: LibraryUiBinding, inflater: LayoutInflater, private val context: Context, private val mainUi: MainActivity) {
 
     // UI widgets
     private var childrenWidget = uiBinding.itemList
@@ -39,12 +38,10 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
 
     // Helpers to handle coordination between the on-screen lists and the state of the UI
     private val model = LibraryViewModel()
-    private var childChooser = ItemChooser(model.childItems, childrenWidget, inflater, { browseTo(it) }, { requestSingleSong(it) })
-    private var breadcrumbChooser = ItemChooser(model.breadcrumbStack, breadcrumbWidget, inflater, { backupTo(it) }, null)
+    private var childChooser = ChildListUI(model, childrenWidget, inflater, { browseTo(it) }, {sendRequestToPlayer(it)})
+    private var breadcrumbChooser = BreadcrumbListUI(model, breadcrumbWidget, inflater) {backupTo(it)}
 
     init {
-        val horizManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        breadcrumbWidget.layoutManager = horizManager
         jumpToRoot()
     }
 
@@ -92,7 +89,7 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
         Log.d("LibraryUI", "Top breadcrumb is ${model.breadcrumbStack.firstOrNull()?.mediaMetadata?.title}")
     }
 
-    private fun requestSingleSong(item: MediaItem) {
+    private fun sendRequestToPlayer(item: MediaItem) {
         val id = item.mediaId
         val bundle = Bundle()
         bundle.putString("id", id)
@@ -124,7 +121,6 @@ class LibraryUIImpl(private val backendLibrary: MediaBrowser, private val rootIt
                 }
             }
         }
-
     }
 
     fun navigateTo(parentIds: List<String>, childId: String) {

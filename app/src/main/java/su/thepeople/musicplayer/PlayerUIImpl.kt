@@ -3,13 +3,15 @@ package su.thepeople.musicplayer
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.TextView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import com.google.common.collect.Lists
-import su.thepeople.musicplayer.databinding.FragmentCustomPlayerBinding
+import com.google.common.collect.Sets
+import su.thepeople.musicplayer.databinding.PlayerUiBinding
 
 typealias OnClick = (View)->Unit
 typealias OnLongPress = (View)->Boolean
@@ -18,10 +20,9 @@ typealias OnLongPress = (View)->Boolean
  * This class handles the actual logic of our custom player UI.  Initial setup bootstrapping is performed in the wrapper PlayerUI
  *
  *  Future directions:
- *   - This is still incomplete. Not all buttons work, not all fields update on new songs.
- *   - Still looks terrible. Polish the UI, and use a "dark mode" styling to save battery.
+ *   - Polish the UI
  */
-class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: MediaController, private val mainUI: MainActivity) {
+class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController, private val mainUI: MainActivity) {
 
     private val bandButton = binding.bandButton
     private val songLabel = binding.songLabel
@@ -30,6 +31,7 @@ class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: Med
     private val modeLabel = binding.modeLabel
     private val playPauseButton = binding.playPauseButton
     private val nextButton = binding.nextButton
+    private val buttonStyler = ButtonStyler(mainUI)
 
     /**
      * Convenience function to allow easy inline definition of callbacks that interact with the player
@@ -79,17 +81,35 @@ class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: Med
     private var showAlbum: OnLongPress = {navigateToCurrentAlbum(); true}
     private var showSong: OnLongPress = {navigateToCurrentSong(); true}
 
+    private fun setButtonStylesForMediaType(mediaType: Int) {
+        // Assume all buttons are unchecked until proven otherwise
+        val uncheckedButtons = Sets.newHashSet<TextView>(bandButton, yearButton, albumButton)
+
+        val buttonToCheck: TextView? = when (mediaType) {
+            MediaMetadata.MEDIA_TYPE_ARTIST -> bandButton
+            MediaMetadata.MEDIA_TYPE_ALBUM -> albumButton
+            else -> null
+        }
+
+        buttonToCheck?.let{
+            uncheckedButtons.remove(it)
+            buttonStyler.styleLocked(it)
+        }
+
+        uncheckedButtons.forEach {
+            buttonStyler.styleUnlocked(it)
+        }
+    }
+
     private val playbackStateListener = object: Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            playPauseButton.text = if (isPlaying) {"Pause"} else {"Play"}
+            val imageId = if (isPlaying) {R.drawable.ic_pause_button} else {R.drawable.ic_play_button}
+            playPauseButton.setImageResource(imageId)
         }
 
         override fun onPlaylistMetadataChanged(mediaMetadata: MediaMetadata) {
             Log.d("PlayerUI", "Playlist metadata changed, with media type ${mediaMetadata.mediaType}")
-            when(mediaMetadata.mediaType) {
-                MediaMetadata.MEDIA_TYPE_ARTIST -> {bandButton.isChecked = true}
-                else -> {bandButton.isChecked = false}
-            }
+            setButtonStylesForMediaType(mediaMetadata.mediaType?:0)
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -116,13 +136,7 @@ class PlayerUIImpl(binding: FragmentCustomPlayerBinding, private val player: Med
 
     private fun updateSongInfo(songInfo: MediaItem) {
         bandButton.text = songInfo.mediaMetadata.artist ?: "<unknown>"
-        bandButton.textOn = songInfo.mediaMetadata.artist ?: "<unknown>"
-        bandButton.textOff = songInfo.mediaMetadata.artist ?: "<unknown>"
-
         albumButton.text = songInfo.mediaMetadata.albumTitle ?: "<unknown>"
-        albumButton.textOn = songInfo.mediaMetadata.albumTitle ?: "<unknown>"
-        albumButton.textOff = songInfo.mediaMetadata.albumTitle ?: "<unknown>"
-
         yearButton.text = (songInfo.mediaMetadata.releaseYear?.toString()) ?: "<unknown>"
         songLabel.text = songInfo.mediaMetadata.displayTitle ?: "<unknown>"
     }
