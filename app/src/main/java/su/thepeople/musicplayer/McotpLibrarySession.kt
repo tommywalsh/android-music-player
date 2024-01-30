@@ -281,4 +281,12 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         Log.d("Session", "Got command ${customCommand.customAction}")
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
+
+    @UnstableApi
+    override fun onPlaybackResumption(
+        mediaSession: MediaSession,
+        controller: MediaSession.ControllerInfo
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        return Futures.immediateFuture(MediaSession.MediaItemsWithStartPosition(ArrayList(), 0, 0))
+    }
 }
