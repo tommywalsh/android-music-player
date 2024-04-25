@@ -5,14 +5,38 @@ import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ALBUM
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
+import com.google.common.collect.Lists
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
 import kotlin.random.Random
+
+class SongProviderState(val providerClass : ProviderClass, val optionalParams : List<Int>? = null) {
+    enum class ProviderClass {
+        CATALOG_SHUFFLE,
+        BAND_SHUFFLE,
+        YEAR_SHUFFLE,
+        ALBUM_SEQUENTIAL,
+        DOUBLE_SHOT,
+        BLOCK_PARTY
+    }
+}
+
+fun initSongProvider(state: SongProviderState, songId: String) : SongProvider? {
+    when (state.providerClass) {
+        SongProviderState.ProviderClass.CATALOG_SHUFFLE -> return ShuffleProvider()
+        SongProviderState.ProviderClass.BAND_SHUFFLE -> return BandShuffleProvider(state.optionalParams!![0])
+        else -> {
+            return null
+        }
+    }
+}
 
 abstract class SongProvider {
     // Subclasses must implement this function.
     // TODO: should there be a way for an implementation to signal that there are no more songs?
     abstract fun getNextBatch(database: Database): List<Song>
+
+    abstract fun getRestartConfig(): SongProviderState
 
     abstract val mode: MajorMode
     abstract val mediaType: Int // From Android's MediaMetadata.MEDIA_TYPE_XXX definitions
@@ -63,6 +87,10 @@ class ShuffleProvider: SongProvider() {
             }
         }
     }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.CATALOG_SHUFFLE)
+    }
 }
 
 class BandShuffleProvider(private val bandId: Int): SongProvider() {
@@ -72,6 +100,10 @@ class BandShuffleProvider(private val bandId: Int): SongProvider() {
     override fun getNextBatch(database: Database): List<Song> {
         return database.songDao().getRandomSongsForBand(bandId, PREFERRED_BATCH_SIZE)
     }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.BAND_SHUFFLE, Lists.newArrayList(bandId))
+    }
 }
 
 open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int): SongProvider() {
@@ -79,6 +111,10 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
     override val mediaType = MEDIA_TYPE_YEAR
     override fun getNextBatch(database: Database): List<Song> {
         return database.songDao().getSongsForYearRange(startYear, endYear, PREFERRED_BATCH_SIZE)
+    }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.YEAR_SHUFFLE, Lists.newArrayList(startYear, endYear))
     }
 }
 
@@ -127,6 +163,10 @@ class AlbumSequentialProvider(private val albumId: Int, private var currentSongI
             currentSongId?.let{id->getPartitionedAlbum(database, id)} ?: getFullAlbum(database)
         }
     }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.ALBUM_SEQUENTIAL, Lists.newArrayList(albumId))
+    }
 }
 
 class DoubleShotProvider: SongProvider() {
@@ -144,6 +184,10 @@ class DoubleShotProvider: SongProvider() {
         Log.d("SongProvider", "Requesting 2 songs for band ${band.id} ${band.name}")
         return database.songDao().getRandomSongsForBand(band.id, 2)
     }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.DOUBLE_SHOT)
+    }
 }
 
 class BlockPartyProvider: SongProvider() {
@@ -153,6 +197,7 @@ class BlockPartyProvider: SongProvider() {
         const val subType = "Block Party Weekend"
         private const val blockSize = 5
     }
+
     override val subTypeLabel: String
         get() {return subType}
 
@@ -167,5 +212,9 @@ class BlockPartyProvider: SongProvider() {
         }
         doBlockNext = !doBlockNext
         return songs
+    }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.BLOCK_PARTY)
     }
 }

@@ -1,12 +1,8 @@
 package su.thepeople.musicplayer
 
-import android.content.BroadcastReceiver
 import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.media.AudioManager
 import android.os.Bundle
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -45,7 +41,7 @@ class MainActivity : FragmentActivity() {
         setContentView(binding.root)
 
         // Initialize the helper UI fragments
-        playerUI = PlayerUI(this@MainActivity)
+        playerUI = PlayerUI()
         libraryUI = LibraryUI(this@MainActivity, this@MainActivity)
 
         // Set up the pager that allows swiping between the UI fragments
@@ -65,20 +61,16 @@ class MainActivity : FragmentActivity() {
         super.onStart()
 
         // Start the process of connecting to the backend
-        val sessionToken = SessionToken(this, ComponentName(this, McotpService::class.java))
-        connectionFinalizeCallback = MediaBrowser.Builder(this, sessionToken).buildAsync()
-        connectionFinalizeCallback.addListener(::onBackendConnectionFinalized, ContextCompat.getMainExecutor(this))
-    }
-
-    private val silencer = object: BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                backendConnection?.pause()
-            }
+        if (backendConnection == null) {
+            Log.d("Main Activity", "Making new backend connection in onStart")
+            val sessionToken = SessionToken(this, ComponentName(this, McotpService::class.java))
+            connectionFinalizeCallback = MediaBrowser.Builder(this, sessionToken).buildAsync()
+            connectionFinalizeCallback.addListener(::onBackendConnectionFinalized, ContextCompat.getMainExecutor(this))
         }
     }
 
     private fun onBackendConnectionFinalized() {
+        Log.d("Main Activity", "New backend connection finalized")
 
         // Dispose of our old connection, if necessary
         backendConnection?.release()
@@ -88,10 +80,8 @@ class MainActivity : FragmentActivity() {
         backendConnection = mb
 
         // ... and supply the connection (which acts as both a player and a library) to our UI fragments
-        playerUI.setPlayer(mb)
+        playerUI.connect(mb, this@MainActivity)
         libraryUI.setBackendLibrary(mb)
-
-        registerReceiver(silencer, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
     }
 
     override fun onStop() {
@@ -99,15 +89,10 @@ class MainActivity : FragmentActivity() {
         MediaController.releaseFuture(connectionFinalizeCallback)
 
         // Release any backend connection we already have
+        Log.d("Main Activity", "Abandoning backend connection")
         backendConnection?.release()
         backendConnection = null
         super.onStop()
-    }
-
-    override fun onDestroy() {
-        unregisterReceiver(silencer)
-
-        super.onDestroy()
     }
 
     fun navigateToPlayer() {

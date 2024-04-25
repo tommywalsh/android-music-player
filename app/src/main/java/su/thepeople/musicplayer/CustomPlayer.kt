@@ -1,6 +1,7 @@
 package su.thepeople.musicplayer
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -19,6 +20,36 @@ enum class MajorMode {
     YEAR
 }
 
+class PlayerRestartConfig(val songProviderState: SongProviderState, val songId: String?) {
+    fun persist(prefs : SharedPreferences, prefix: String) {
+        with (prefs.edit()) {
+            putString(prefix + "song_id", songId)
+            putString(prefix + "provider_type", songProviderState.providerClass.toString())
+            var i = 0
+            songProviderState.optionalParams?.forEach {
+                putInt(prefix + "param" + i.toString(), it)
+                i += 1
+            }
+            putInt(prefix + "param" + i.toString(), -1)
+            apply()
+        }
+    }
+}
+
+fun recoverConfig(prefs: SharedPreferences, prefix: String) : PlayerRestartConfig? {
+    val songId = prefs.getString(prefix + "song_id", null) ?: return null
+    val providerClass = prefs.getString(prefix + "provider_type", null) ?: return null
+    val params = ArrayList<Int>()
+    var i = 0
+    while (true) {
+        val param = prefs.getInt(prefix + "param" + i.toString(), -1)
+        if (param == -1) break
+        params.add(param)
+        i += 1
+    }
+    return PlayerRestartConfig(SongProviderState(SongProviderState.ProviderClass.valueOf(providerClass), params), songId)
+}
+
 /**
  * The Android "media3" API mushed together two different concepts: music playback, and library exploration.  This class
  * handles solely the music playback.
@@ -27,7 +58,7 @@ enum class MajorMode {
  * with "play modes" (random-playing the entire library, playing an album, etc.).  We interact with the player by loading more items onto the end of
  * its playlist, and removing any already-played items from the beginning of the playlist.
  */
-class CustomPlayer(private val database: Database, private val context: Context) {
+class CustomPlayer(private val database: Database, private val context: Context, config: PlayerRestartConfig?) {
 
     private val androidPlayer = ExoPlayer.Builder(context).build()
 
@@ -47,7 +78,21 @@ class CustomPlayer(private val database: Database, private val context: Context)
     }
 
     init {
-        requestNextBatch(true)
+        Log.d("McotpService","Initializing player")
+        config?.let{ goodConfig ->
+            Log.d("McotpService","Initializing player with config")
+            val initialSongId = goodConfig.songId?.let{ extId -> internalId(extId)}
+            initialSongId?.let {songId ->
+                Log.d("McotpService","Initializing player with song ID %d".format(songId))
+                Futures.addCallback(
+                    database.async {database.songDao().get(songId)?.let{database.mediaItem(it)}},
+                    successCallback{mediaItem ->
+                        Log.d("McotpService","Got media item from database".format(songId))
+                        mediaItem?.let{androidPlayer.setMediaItem(it)}
+                        initProvider(goodConfig)},
+                    ContextCompat.getMainExecutor(context))
+            } ?: initProvider(goodConfig)
+        } ?: requestNextBatch(false)
         androidPlayer.addListener(transitionListener)
     }
 
@@ -90,6 +135,18 @@ class CustomPlayer(private val database: Database, private val context: Context)
             ContextCompat.getMainExecutor(context))
     }
 
+    private fun initProvider(config: PlayerRestartConfig) {
+        provider = when(config.songProviderState.providerClass) {
+            SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0])
+            SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1])
+            SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider()
+            SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider()
+            SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0], config.songId?.let{internalId(it)})
+            else -> ShuffleProvider()
+        }
+        swapProvider(provider, false)
+    }
+
     private fun swapProvider(newProvider: SongProvider, switchNow: Boolean) {
         provider = newProvider
         androidPlayer.playlistMetadata = MediaMetadata.Builder()
@@ -115,6 +172,11 @@ class CustomPlayer(private val database: Database, private val context: Context)
         } else {
             swapProvider(ShuffleProvider(), false)
         }
+    }
+
+    fun getRestartConfig() : PlayerRestartConfig {
+        val providerState  = provider.getRestartConfig()
+        return PlayerRestartConfig(providerState, androidPlayer.currentMediaItem?.mediaId)
     }
 
     fun changeYearLock() {
@@ -156,6 +218,10 @@ class CustomPlayer(private val database: Database, private val context: Context)
                 }
             }
         }
+    }
+
+    fun forcePause() {
+        androidPlayer.pause()
     }
 
     fun forcePlayItem(externalId: String) {

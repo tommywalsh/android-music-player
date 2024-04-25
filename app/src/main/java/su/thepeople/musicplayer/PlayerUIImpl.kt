@@ -105,6 +105,8 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
 
     private val playbackStateListener = object: Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            Log.d("PlayerUI", "isPlaying changed to  $isPlaying")
+
             val imageId = if (isPlaying) {R.drawable.ic_pause_button} else {R.drawable.ic_play_button}
             playPauseButton.setImageResource(imageId)
         }
@@ -116,6 +118,7 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            Log.d("PlayerUI", "Playlist metadata tranitioning, with media type ${mediaItem}?.mediaType}")
             mediaItem?.let {updateSongInfo(it)}
         }
     }
@@ -136,9 +139,13 @@ class PlayerUIImpl(binding: PlayerUiBinding, private val player: MediaController
         player.currentMediaItem?.let {updateSongInfo(it)}
         player.addListener(playbackStateListener)
 
+        setButtonStylesForMediaType(player.playlistMetadata.mediaType?:0)
+        player.playlistMetadata.title?.let{modeLabel.text = it}
     }
 
     private fun updateSongInfo(songInfo: MediaItem) {
+        Log.d("PlayerUI", "song info being updated")
+
         bandButton.text = songInfo.mediaMetadata.artist ?: "<unknown>"
         albumButton.text = songInfo.mediaMetadata.albumTitle ?: "<unknown>"
         yearButton.text = (songInfo.mediaMetadata.releaseYear?.toString()) ?: "<unknown>"

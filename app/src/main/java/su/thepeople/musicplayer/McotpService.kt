@@ -1,5 +1,11 @@
 package su.thepeople.musicplayer
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
+import android.util.Log
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.room.Room
@@ -26,16 +32,41 @@ class McotpService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         database = Room.databaseBuilder(applicationContext, Database::class.java, "mcotp-database").build()
-        customPlayer = CustomPlayer(database, applicationContext)
+
+        val key = "mcotp_restart"
+        val prefs = applicationContext.getSharedPreferences(key, Context.MODE_PRIVATE)
+        Log.d("McotpService", prefs.toString())
+        val config = recoverConfig(prefs, key)
+        Log.d("McotpService", config.toString())
+        customPlayer = CustomPlayer(database, applicationContext, config)
+
         librarySession = McotpLibrarySession(applicationContext, customPlayer)
         mediaSession = MediaLibrarySession.Builder(this, customPlayer.playerAPIHandler, librarySession).setId("mcotp").build()
 
-        // TODO: This should really be coordinated elsewhere, perhaps in the service startup
+
         startBackgroundScan()
 
+        registerReceiver(silencer, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+    }
+
+    private val silencer = object: BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.d("Mcotp Service", "intent received")
+
+            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                Log.d("Mcotp Service", "pausing because audio is becoming noisy")
+                customPlayer.forcePause()
+            }
+        }
     }
 
     override fun onDestroy() {
+        val key = "mcotp_restart"
+        val config = customPlayer.getRestartConfig()
+        val prefs = applicationContext.getSharedPreferences(key, Context.MODE_PRIVATE)
+        config.persist(prefs, key)
+
+        unregisterReceiver(silencer)
         customPlayer.release()
         mediaSession.release()
         super.onDestroy()

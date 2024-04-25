@@ -1,13 +1,4 @@
-DONE Make simple library browser in UI
-DONE Import music scanning code (can do brute-force whole-library scan for now)
-DONE Serve up scanned bands using library API, verify using UI
-DONE Add database
-DONE Add full-library shuffle playback
-DONE Create custom player UI with better controls
-DONE Implement new play modes (locking, etc.)
-DONE Make functional library browser that can initiate new playback modes on player
-DONE Improve UI
-DONE More play modes
+- Maybe restore former song playtime after restart?
 
 ---
 
@@ -41,4 +32,9 @@ DEFERRED Playback behaves differently for:
     - DB partially initialized, initialization underway
     - DB fully initialized and idle
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
+
+A second call to "connect" happens when bluetooth connects!
+Actually any change to bluetooth seems to cause a new "accepting connection" method!
+
+Do I need to make another connection every time start() is called, or may I continue to use old stuff?
 

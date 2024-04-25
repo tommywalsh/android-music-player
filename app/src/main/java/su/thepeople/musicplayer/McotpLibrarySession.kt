@@ -35,7 +35,7 @@ const val YEARS_ID = "root:years"
  * This class represents a "MediaLibrarySession.Callback". Despite that name, this class serves as a navigation API.  All bands/albums/songs are
  * represented as nodes in a tree, through which the user can navigate.
  *
- * This app's code is split  between the "activity" (frontend), and "service" (backend).  This class is on the service side, and it handles
+ * This app's code is split between the "activity" (frontend), and "service" (backend).  This class is on the service side, and it handles
  * navigation requests from the activity side. This class's job includes translates from the generic language of Android's "media" API to the
  * specific language of MCotP:
  *
