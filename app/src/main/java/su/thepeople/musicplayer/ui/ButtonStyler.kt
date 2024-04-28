@@ -1,16 +1,17 @@
-package su.thepeople.musicplayer
+package su.thepeople.musicplayer.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.widget.TextView
+import su.thepeople.musicplayer.R
 
 /**
  * Android has a fairly flexible and nice way to define styles inside of XML files, which lets you define color/font/etc. choices all in one
  * place. This lets you easily make tweaks to a style, and also to swap styles in and out.
  *
  * That's true so long as you're working solely in XML.  In code, I'd love to be able to say 'myButton.setStyle(R.style.selected)'.  But
- * amazingly, Android has no support for that!  Instead, there is an asinine procedures, where you have to look up "styled attributes", then apply
+ * amazingly, Android has no support for that!  Instead, there is an asinine procedure, where you have to look up "styled attributes", then apply
  * each of them one-by-one to whatever widgets you care about. Then, you have to manually "recycle" the memory used by the list like it's 1994.
  *
  * This class hides all of this complexity from the rest of the code.

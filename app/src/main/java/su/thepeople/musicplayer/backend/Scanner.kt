@@ -1,4 +1,4 @@
-package su.thepeople.musicplayer
+package su.thepeople.musicplayer.backend
 
 import android.content.Context
 import su.thepeople.musicplayer.data.Album

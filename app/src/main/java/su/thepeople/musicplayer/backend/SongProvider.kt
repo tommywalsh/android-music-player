@@ -1,4 +1,4 @@
-package su.thepeople.musicplayer
+package su.thepeople.musicplayer.backend
 
 import android.util.Log
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ALBUM
@@ -18,16 +18,6 @@ class SongProviderState(val providerClass : ProviderClass, val optionalParams : 
         ALBUM_SEQUENTIAL,
         DOUBLE_SHOT,
         BLOCK_PARTY
-    }
-}
-
-fun initSongProvider(state: SongProviderState, songId: String) : SongProvider? {
-    when (state.providerClass) {
-        SongProviderState.ProviderClass.CATALOG_SHUFFLE -> return ShuffleProvider()
-        SongProviderState.ProviderClass.BAND_SHUFFLE -> return BandShuffleProvider(state.optionalParams!![0])
-        else -> {
-            return null
-        }
     }
 }
 
@@ -176,7 +166,7 @@ class DoubleShotProvider: SongProvider() {
         const val subType = "Double-Shot Weekend"
     }
     override val subTypeLabel: String
-        get() {return subType}
+        get() {return subType }
 
 
     override fun getNextBatch(database: Database): List<Song> {
@@ -199,7 +189,7 @@ class BlockPartyProvider: SongProvider() {
     }
 
     override val subTypeLabel: String
-        get() {return subType}
+        get() {return subType }
 
     private var doBlockNext = true
 

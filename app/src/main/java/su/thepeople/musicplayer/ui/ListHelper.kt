@@ -1,4 +1,4 @@
-package su.thepeople.musicplayer
+package su.thepeople.musicplayer.ui
 
 import android.annotation.SuppressLint
 import android.view.LayoutInflater

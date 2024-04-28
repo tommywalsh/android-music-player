@@ -1,4 +1,4 @@
-package su.thepeople.musicplayer
+package su.thepeople.musicplayer.backend
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -12,6 +12,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.google.common.util.concurrent.Futures
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.internalId
+import su.thepeople.musicplayer.onSuccess
+import su.thepeople.musicplayer.successCallback
 
 enum class MajorMode {
     COLLECTION,
