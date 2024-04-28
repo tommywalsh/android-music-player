@@ -1,9 +1,6 @@
-Check for proper resource/listener disposal, especially in library
 - Maybe restore former song playtime after restart?
-- Investigate library UI slowness
-
+- Improve look and feel of library, perhaps by using buttons instead of labels?
 ---
-
 
 ---
 Cleanup opportunities:

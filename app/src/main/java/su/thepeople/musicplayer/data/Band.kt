@@ -30,6 +30,12 @@ interface BandDao {
     @Query("SELECT * from band ORDER BY random() LIMIT 1")
     fun getRandomBand(): Band
 
+    @Query("SELECT distinct substr(name,1,1) AS letter FROM band ORDER BY letter")
+    fun getAllInitialCharactersFromNames(): List<String>
+
+    @Query("SELECT * FROM band WHERE name LIKE (:letter || '%')")
+    fun getBandsBeginningWithLetter(letter: String): List<Band>
+
     @Insert
     fun insert(band: Band): Long
 

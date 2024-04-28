@@ -24,11 +24,14 @@ import su.thepeople.musicplayer.data.ALBUM_PREFIX
 import su.thepeople.musicplayer.data.BAND_PREFIX
 import su.thepeople.musicplayer.data.DECADE_PREFIX
 import su.thepeople.musicplayer.data.Database
+import su.thepeople.musicplayer.data.GROUP_PREFIX
 import su.thepeople.musicplayer.data.SONG_PREFIX
-import su.thepeople.musicplayer.data.internalId
+import su.thepeople.musicplayer.data.internalIntId
+import su.thepeople.musicplayer.data.internalStringId
 
 const val ROOT_ID = "root"
 const val BANDS_ID = "root:bands"
+const val GROUPED_BANDS_ID = "root:grouped_bands"
 const val YEARS_ID = "root:years"
 
 /**
@@ -84,6 +87,18 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             .build())
         .build()
 
+
+    private val groupedBandsItem = MediaItem.Builder()
+        .setMediaId(GROUPED_BANDS_ID)
+        .setMediaMetadata(MediaMetadata.Builder()
+            .setMediaType(MEDIA_TYPE_MUSIC)
+            .setDisplayTitle("Grouped Bands")
+            .setTitle("Grouped Bands")
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .build())
+        .build()
+
     private val yearsItem = MediaItem.Builder()
         .setMediaId(YEARS_ID)
         .setMediaMetadata(MediaMetadata.Builder()
@@ -126,6 +141,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         session: MediaLibraryService.MediaLibrarySession,
         controller: MediaSession.ControllerInfo,
         mediaId: String): ListenableFuture<LibraryResult<MediaItem>> {
+        Log.d("Library", "Servicing request to get item")
         return when {
             mediaId == ROOT_ID -> {
                 Futures.immediateFuture(LibraryResult.ofItem(rootItem, null))
@@ -133,14 +149,20 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             mediaId == BANDS_ID -> {
                 Futures.immediateFuture(LibraryResult.ofItem(bandsItem, null))
             }
+            mediaId == GROUPED_BANDS_ID -> {
+                Futures.immediateFuture(LibraryResult.ofItem(groupedBandsItem, null))
+            }
             mediaId == YEARS_ID -> {
                 Futures.immediateFuture(LibraryResult.ofItem(yearsItem, null))
             }
             mediaId.startsWith(DECADE_PREFIX) -> {
-                Futures.immediateFuture(LibraryResult.ofItem(decadeItem(internalId(mediaId)), null))
+                Futures.immediateFuture(LibraryResult.ofItem(decadeItem(internalIntId(mediaId)), null))
+            }
+            mediaId.startsWith(GROUP_PREFIX) -> {
+                Futures.immediateFuture(LibraryResult.ofItem(bandGroupItem(internalStringId(mediaId)), null))
             }
             mediaId.startsWith(BAND_PREFIX) -> {
-                val bandId = internalId(mediaId)
+                val bandId = internalIntId(mediaId)
                 return database.async {
                     val band = database.bandDao().get(bandId)
                     val item = database.mediaItem(band)
@@ -148,7 +170,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             mediaId.startsWith(ALBUM_PREFIX) -> {
-                val albumId = internalId(mediaId)
+                val albumId = internalIntId(mediaId)
                 return database.async {
                     val album = database.albumDao().get(albumId)
                     val item = database.mediaItem(album)
@@ -156,7 +178,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             mediaId.startsWith(SONG_PREFIX) -> {
-                val songId = internalId(mediaId)
+                val songId = internalIntId(mediaId)
                 return database.async {
                     val item = database.songDao().get(songId)?.let {song->
                         LibraryResult.ofItem(database.mediaItem(song), null)
@@ -178,10 +200,22 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             .setDisplayTitle("${decade}s")
             .build()
         return MediaItem.Builder()
-            .setMediaId("decade:$decade")
+            .setMediaId("$DECADE_PREFIX$decade")
             .setMediaMetadata(metadata)
             .build()
+    }
 
+    private fun bandGroupItem(letter: String): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .setTitle(letter)
+            .setDisplayTitle(letter)
+            .build()
+        return MediaItem.Builder()
+            .setMediaId("$GROUP_PREFIX$letter")
+            .setMediaMetadata(metadata)
+            .build()
     }
 
     private fun yearItem(year: Int): MediaItem {
@@ -204,14 +238,22 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         page: Int,
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-        return when {
+        Log.d("Library", "Servicing request to get children")
+        val result = when {
             parentId == ROOT_ID -> {
-                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem, yearsItem), null))
+                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem, groupedBandsItem, yearsItem), null))
             }
             parentId == BANDS_ID -> {
                 return database.async {
                     val bands = database.bandDao().getAll()
                     val items = bands.map {database.mediaItem(it)}
+                    LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
+                }
+            }
+            parentId == GROUPED_BANDS_ID -> {
+                return database.async {
+                    val bands = database.bandDao().getAllInitialCharactersFromNames()
+                    val items = bands.map(::bandGroupItem)
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
             }
@@ -224,13 +266,20 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             }
             parentId.startsWith(DECADE_PREFIX) -> {
                 return database.async {
-                    val years = database.songDao().getYearsForDecade(internalId(parentId))
+                    val years = database.songDao().getYearsForDecade(internalIntId(parentId))
                     val items = years.map(::yearItem)
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
             }
+            parentId.startsWith(GROUP_PREFIX) -> {
+                return database.async {
+                    val bands = database.bandDao().getBandsBeginningWithLetter(internalStringId(parentId))
+                    val items = bands.map {database.mediaItem(it)}
+                    LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
+                }
+            }
             parentId.startsWith(BAND_PREFIX) -> {
-                val bandId = internalId(parentId)
+                val bandId = internalIntId(parentId)
                 return database.async {
                     val albums = database.albumDao().getAllForBand(bandId)
                     val albumItems = albums.map { database.mediaItem(it) }
@@ -240,7 +289,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             parentId.startsWith(ALBUM_PREFIX) -> {
-                val albumId = internalId(parentId)
+                val albumId = internalIntId(parentId)
                 return database.async {
                     val songs = database.songDao().getSongsForAlbum(albumId)
                     val items = songs.map {database.mediaItem(it)}
@@ -251,6 +300,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), null))
             }
         }
+        return result
     }
 
     override fun onCustomCommand(

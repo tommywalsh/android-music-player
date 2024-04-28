@@ -1,6 +1,7 @@
 package su.thepeople.musicplayer.ui
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -93,6 +94,7 @@ class ChildListUI(
 
 
     private fun navigationRequest(item: MediaItem) {
+        Log.d("LibraryUI", "Navigation request received")
         if (item.mediaMetadata.isBrowsable == true) {
             browseAction(item)
         }

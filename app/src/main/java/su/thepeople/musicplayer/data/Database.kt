@@ -1,6 +1,7 @@
 package su.thepeople.musicplayer.data
 
 import android.os.Bundle
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.room.Database
@@ -31,7 +32,12 @@ abstract class Database : RoomDatabase() {
     abstract fun songDao(): SongDao
 
     fun <T> async (task: ()->T): ListenableFuture<T> {
-        return Futures.submit(Callable{task()}, executor)
+        return Futures.submit(Callable{
+            Log.d("Database", "Beginning async task")
+            val result = task()
+            Log.d("Database", "Done with async task")
+            result
+        }, executor)
     }
 
     fun mediaItem(band: Band): MediaItem {

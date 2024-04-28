@@ -12,6 +12,7 @@ const val BAND_PREFIX = "band:"
 const val ALBUM_PREFIX = "album:"
 const val SONG_PREFIX = "song:"
 const val DECADE_PREFIX = "decade:"
+const val GROUP_PREFIX = "group:"
 const val YEAR_PREFIX = "year:"
 
 /**
@@ -32,6 +33,10 @@ fun Song.externalId(): String {
 /**
  * Converts an external string ID (for any type) into an internal integer ID
  */
-fun internalId(externalId: String): Int {
+fun internalIntId(externalId: String): Int {
     return externalId.substringAfter(":").toInt()
+}
+
+fun internalStringId(externalId: String): String {
+    return externalId.substringAfter(":")
 }

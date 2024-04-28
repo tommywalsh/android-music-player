@@ -11,7 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.google.common.util.concurrent.Futures
 import su.thepeople.musicplayer.data.Database
-import su.thepeople.musicplayer.data.internalId
+import su.thepeople.musicplayer.data.internalIntId
 import su.thepeople.musicplayer.onSuccess
 import su.thepeople.musicplayer.successCallback
 
@@ -83,7 +83,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
         Log.d("McotpService","Initializing player")
         config?.let{ goodConfig ->
             Log.d("McotpService","Initializing player with config")
-            val initialSongId = goodConfig.songId?.let{ extId -> internalId(extId)}
+            val initialSongId = goodConfig.songId?.let{ extId -> internalIntId(extId)}
             initialSongId?.let {songId ->
                 Log.d("McotpService","Initializing player with song ID %d".format(songId))
                 Futures.addCallback(
@@ -143,7 +143,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
             SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1])
             SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider()
             SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider()
-            SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0], config.songId?.let{internalId(it)})
+            SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0], config.songId?.let{internalIntId(it)})
             else -> ShuffleProvider()
         }
         swapProvider(provider, false)
@@ -195,7 +195,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
         // If not, then we toggle between album and shuffle mode
         if (forceAlbumId != null || provider.mode != MajorMode.ALBUM) {
             val albumId = forceAlbumId?:androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("album")
-            val songId = androidPlayer.currentMediaItem?.mediaId?.let{internalId(it)}
+            val songId = androidPlayer.currentMediaItem?.mediaId?.let{internalIntId(it)}
             if (albumId != null && albumId != 0) {
                 swapProvider(AlbumSequentialProvider(albumId, songId), forceAlbumId != null)
                 forceAlbumId?.let{ androidPlayer.seekToNextMediaItem()}
@@ -228,7 +228,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     fun forcePlayItem(externalId: String) {
         val type = externalId.substringBefore(":")
-        val id = internalId(externalId)
+        val id = internalIntId(externalId)
         when (type) {
             "band" -> {
                 changeBandLock(id)
