@@ -33,7 +33,7 @@ interface BandDao {
     @Query("SELECT distinct substr(name,1,1) AS letter FROM band ORDER BY letter")
     fun getAllInitialCharactersFromNames(): List<String>
 
-    @Query("SELECT * FROM band WHERE name LIKE (:letter || '%')")
+    @Query("SELECT * FROM band WHERE name LIKE (:letter || '%') ORDER BY name")
     fun getBandsBeginningWithLetter(letter: String): List<Band>
 
     @Insert

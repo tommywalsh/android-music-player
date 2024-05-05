@@ -7,6 +7,10 @@
     <style name="LockableButton">
         <item name="android:gravity">center_horizontal|center_vertical</item>
         <item name="android:textAllCaps">true</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">marquee</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <style name="UnlockedButton" parent="LockableButton">

@@ -79,12 +79,13 @@ abstract class ListHelper<B: ViewBinding>(
     @SuppressLint("NotifyDataSetChanged")
     fun refresh() {
         listView.adapter?.notifyDataSetChanged()
+        listView.requestLayout()
     }
 }
 
 class ChildListUI(
     model: LibraryViewModel,
-    listView: RecyclerView,
+    val listView: RecyclerView,
     private val layoutInflater: LayoutInflater,
     private val browseAction: (MediaItem) -> Unit,
     private val playAction: ((MediaItem) -> Unit)
