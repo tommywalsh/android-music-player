@@ -35,6 +35,20 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    flavorDimensions += "version"
+    productFlavors {
+        create("device") {
+            dimension = "version"
+            applicationIdSuffix = ".device"
+            versionNameSuffix = "-device"
+        }
+        create("console") {
+            dimension = "version"
+            applicationIdSuffix = ".console"
+            versionNameSuffix = "-console"
+        }
+    }
 }
 
 dependencies {

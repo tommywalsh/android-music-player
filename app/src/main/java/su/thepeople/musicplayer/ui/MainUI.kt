@@ -1,11 +1,18 @@
 package su.thepeople.musicplayer.ui
 
+import android.app.Activity
 import android.os.Bundle
+import android.view.View
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
+
+// Each variant of this application must provide a global variable CUSTOMIZER that implements this:
+abstract class MainUICustomizer {
+    abstract fun onCreateActivity(ui: Activity, mainView: View)
+}
 
 /**
  * Main application UI.  This class largely handles setup and teardown. Most of the app logic lives in other classes.
@@ -27,6 +34,8 @@ class MainUI : FragmentActivity() {
         // Initialize the main UI
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        CUSTOMIZER.onCreateActivity(this, binding.root)
 
         // Initialize the helper UI fragments
         playerUI = PlayerFragment()

@@ -1,28 +1,33 @@
 - Maybe restore former song playtime after restart?
 - Improve look and feel of library, perhaps by using buttons instead of labels?
+- UI will sometimes still show the wrong playstate. It's unclear how to reproduce this reliably.
+- Can we move special permissions into build variant subdirectories (so normal app doesn't need to declare bluetooth and lock permissions)
 ---
+
+IMPROVE BEHAVIOR AT INITIAL STARTUP!
+  - Currently UI freezes as DB is scanned
+  - Required steps to get this to work:
+     1) If updating from an older app ID or database version, must delete old app
+     2) Install, but do not run new app  (alternatively: run app, then force stop it, then clear its data)
+     3) Allow all permissions on app
+     4) Start app. It will not show anything useful.  Wait at least 3 minutes, or watch app log in Android Studio
+     5) Restart app, or select a band from library view.
+     6) App should work from now on.
 
 ---
 Cleanup opportunities:
 - Audit TODOs and "future directions"
-- Scanner needs to kick off automatically, without user needing to switch to the library UI!
-- separate packages for UI and backend
 
 ---
 - Allow "early access" to database before first scan complete?
-- Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?
-- Make selection button stretch to side of screen in library mode
+- Better use of external media dirs (e.g. require mcotp to be under a "Music" directory?)
 - Make sure library scrolls to correct screen location on navigation from player
 
-How will we communicate non-standard info across app/service boundary, like double-shot weekend, and sequential mode, etc.?
-
 How to deal with sorting multiple releases in the same year?
-We will need this for band sequential mode
+We will need this for band sequential mode to work 100% correctly
 
 
 How to deal with band names not matching directory names (Anthrax, The Smiths, R.E.M.)?
-
-Better scrolling through long list of bands
 
 ---
 DEFERRED Augment scanning code to handle "last updated" file info, so we can update DB as SD card changes
@@ -31,9 +36,4 @@ DEFERRED Playback behaves differently for:
     - DB partially initialized, initialization underway
     - DB fully initialized and idle
     - DB fully initialized, being rescanned  (potentially same as initialized/idle)
-
-A second call to "connect" happens when bluetooth connects!
-Actually any change to bluetooth seems to cause a new "accepting connection" method!
-
-Do I need to make another connection every time start() is called, or may I continue to use old stuff?
 
