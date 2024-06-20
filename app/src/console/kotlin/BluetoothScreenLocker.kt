@@ -19,6 +19,7 @@ import androidx.core.app.ActivityCompat
 @Suppress("DEPRECATION")
 class BluetoothScreenLocker(ui: Activity) : BroadcastReceiver() {
     private val rawScreenLocker = ScreenLocker(ui)
+    private var wantToBeLocked = false
 
     init {
         val filter =  IntentFilter()
@@ -30,6 +31,7 @@ class BluetoothScreenLocker(ui: Activity) : BroadcastReceiver() {
         if (ActivityCompat.checkSelfPermission(ui, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
             if (BluetoothAdapter.getDefaultAdapter().bondedDevices.isNotEmpty()) {
                 rawScreenLocker.ensureScreenOn()
+                wantToBeLocked = true
             }
         }
     }
@@ -37,8 +39,20 @@ class BluetoothScreenLocker(ui: Activity) : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         // Force screen on when bluetooth connects, but don't force anything when bluetooth is off
         when(intent.action) {
-            BluetoothDevice.ACTION_ACL_CONNECTED -> {rawScreenLocker.ensureScreenOn()}
-            BluetoothDevice.ACTION_ACL_DISCONNECTED -> {rawScreenLocker.allowScreenToShutOff()}
+            BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                wantToBeLocked = true
+                rawScreenLocker.ensureScreenOn()
+            }
+            BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                rawScreenLocker.allowScreenToShutOff()
+                wantToBeLocked = false
+            }
+        }
+    }
+
+    fun renewScreenLock() {
+        if (wantToBeLocked) {
+            rawScreenLocker.ensureScreenOn()
         }
     }
 }

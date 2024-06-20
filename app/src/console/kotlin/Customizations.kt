@@ -22,6 +22,11 @@ class ConsoleCustomizer : MainUICustomizer() {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
         btScreenLocker = BluetoothScreenLocker(ui)
     }
+
+    override fun onNewSongLoaded() {
+        // Refresh our screen lock, which sometimes gets cleared.
+        btScreenLocker.renewScreenLock()
+    }
 }
 
 val CUSTOMIZER: MainUICustomizer = ConsoleCustomizer()

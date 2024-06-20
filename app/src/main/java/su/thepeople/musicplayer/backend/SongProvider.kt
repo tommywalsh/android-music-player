@@ -83,7 +83,7 @@ class ShuffleProvider: SongProvider() {
     }
 }
 
-class BandShuffleProvider(private val bandId: Int): SongProvider() {
+class BandShuffleProvider(private val bandId: Long): SongProvider() {
     override val mode = MajorMode.BAND
     override val mediaType = MEDIA_TYPE_ARTIST
 
@@ -92,7 +92,7 @@ class BandShuffleProvider(private val bandId: Int): SongProvider() {
     }
 
     override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.BAND_SHUFFLE, Lists.newArrayList(bandId))
+        return SongProviderState(SongProviderState.ProviderClass.BAND_SHUFFLE, Lists.newArrayList(bandId.toInt()))
     }
 }
 
@@ -111,7 +111,7 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
 class DecadeShuffleProvider(startYear: Int): YearRangeShuffleProvider(startYear, startYear + 9)
 class YearShuffleProvider(year: Int): YearRangeShuffleProvider(year, year)
 
-class AlbumSequentialProvider(private val albumId: Int, private var currentSongId: Int? = null): SongProvider() {
+class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null): SongProvider() {
     override val mode = MajorMode.ALBUM
     override val mediaType = MEDIA_TYPE_ALBUM
 
@@ -127,7 +127,7 @@ class AlbumSequentialProvider(private val albumId: Int, private var currentSongI
         return database.songDao().getSongsForAlbum(albumId)
     }
 
-    private fun getPartitionedAlbum(database: Database, partitionId: Int): List<Song> {
+    private fun getPartitionedAlbum(database: Database, partitionId: Long): List<Song> {
         val fullAlbum = getFullAlbum(database)
         val earlyAlbum = ArrayList<Song>()
         val lateAlbum = ArrayList<Song>()
@@ -155,7 +155,7 @@ class AlbumSequentialProvider(private val albumId: Int, private var currentSongI
     }
 
     override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.ALBUM_SEQUENTIAL, Lists.newArrayList(albumId))
+        return SongProviderState(SongProviderState.ProviderClass.ALBUM_SEQUENTIAL, Lists.newArrayList(albumId.toInt()))
     }
 }
 

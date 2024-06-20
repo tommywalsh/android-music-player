@@ -1,6 +1,7 @@
 package su.thepeople.musicplayer.backend
 
 import android.content.Context
+import android.util.Log
 import su.thepeople.musicplayer.data.Album
 import su.thepeople.musicplayer.data.Band
 import su.thepeople.musicplayer.data.Database
@@ -68,15 +69,20 @@ class Scanner(private val context: Context, private val database: Database) {
                 candidate.extension != "json"
     }
 
-    private fun scanAlbumSongs(albumDir: File, bandId: Int, album: Album, albumId: Int) {
+    private fun scanAlbumSongs(albumDir: File, bandId: Long, album: Album, albumId: Long): Boolean {
+        var foundSong = false
+        Log.d("Scanner", "Scanning album ${album.name}")
+
         albumDir.listFiles()?.forEach { songFile ->
             if (isSongFile(songFile)) {
                 scanAlbumSong(songFile, bandId, album, albumId)
+                foundSong = true
             }
         }
+        return foundSong
     }
 
-    private fun scanAlbumAndContents(albumDir: File, bandId: Int) {
+    private fun scanAlbumAndContents(albumDir: File, bandId: Long): Boolean {
         val matchResult = ALBUM_REGEX.matchEntire(albumDir.name)
         val album: Album = if (matchResult != null) {
             val year = matchResult.groups[2]!!.value
@@ -86,11 +92,16 @@ class Scanner(private val context: Context, private val database: Database) {
             Album(NEW_OBJ_ID, albumDir.name.substringBeforeLast("."), albumDir.absolutePath, bandId)
         }
 
-        val albumId = database.albumDao().insert(album).toInt()
-        scanAlbumSongs(albumDir, bandId, album, albumId)
+        val albumId = database.albumDao().insert(album)
+        val foundSong = scanAlbumSongs(albumDir, bandId, album, albumId)
+        if (!foundSong) {
+            Log.d("Scanner", "No songs found for ${album.name}, deleting")
+            database.albumDao().delete(albumId)
+        }
+        return foundSong
     }
 
-    private fun scanLooseSong(songFile: File, bandId: Int) {
+    private fun scanLooseSong(songFile: File, bandId: Long) {
         val matchResult = LOOSE_SONG_REGEX.matchEntire(songFile.name)
         val song: Song = if (matchResult != null) {
             val year = matchResult.groups[2]!!.value
@@ -102,7 +113,7 @@ class Scanner(private val context: Context, private val database: Database) {
         database.songDao().insert(song)
     }
 
-    private fun scanAlbumSong(songFile: File, bandId: Int, album: Album, albumId: Int) {
+    private fun scanAlbumSong(songFile: File, bandId: Long, album: Album, albumId: Long) {
         val matchResult = ALBUM_SONG_REGEX.matchEntire(songFile.name)
         val song: Song = if (matchResult != null) {
             val trackNum = matchResult.groups[2]!!.value
@@ -116,13 +127,25 @@ class Scanner(private val context: Context, private val database: Database) {
 
     private fun scanBandAndContents(bandDir: File) {
         val band = Band(NEW_OBJ_ID, bandDir.name, bandDir.absolutePath)
-        val bandId = database.bandDao().insert(band).toInt()
+        val bandId = database.bandDao().insert(band)
+        var foundSong = false
+        Log.d("Scanner", "Scanning band ${bandDir.name}")
         bandDir.listFiles()?.forEach { childObj ->
             if (isBandOrAlbumDir(childObj)) {
-                scanAlbumAndContents(childObj, bandId)
+                val foundAlbumSong = scanAlbumAndContents(childObj, bandId)
+                if (foundAlbumSong) {
+                    Log.d("Scanner", "Last album had songs")
+                    foundSong = true
+                }
             } else if (isSongFile(childObj)) {
                 scanLooseSong(childObj, bandId)
+                Log.d("Scanner", "Found loose song ${childObj.name}")
+                foundSong = true
             }
+        }
+        if (!foundSong) {
+            Log.d("Scanner", "No songs found for $band.name, deleting")
+            database.bandDao().delete(bandId)
         }
     }
 

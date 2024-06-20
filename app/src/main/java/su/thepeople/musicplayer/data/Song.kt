@@ -18,12 +18,12 @@ import androidx.room.Query
  */
 @Entity
 data class Song(
-    @PrimaryKey(autoGenerate = true) val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Long,
     val name: String,
     val path: String,
-    val bandId: Int,
+    val bandId: Long,
     val year: String? = null,
-    val albumId: Int? = null,
+    val albumId: Long? = null,
     val albumTrackNum: Int? = null
 )
 
@@ -31,13 +31,13 @@ data class Song(
 @Dao
 interface SongDao {
     @Query("SELECT * from song WHERE bandId = :bandId and albumId IS NULL ORDER BY year, name")
-    fun getLooseSongsForBand(bandId: Int): List<Song>
+    fun getLooseSongsForBand(bandId: Long): List<Song>
 
     @Query("SELECT * from song WHERE albumId = :albumId ORDER BY albumTrackNum")
-    fun getSongsForAlbum(albumId: Int): List<Song>
+    fun getSongsForAlbum(albumId: Long): List<Song>
 
     @Query("SELECT * from song WHERE id = :songId")
-    fun get(songId: Int): Song?
+    fun get(songId: Long): Song?
 
     @Query("SELECT * from song ORDER BY random() LIMIT 1")
     fun getRandomSong(): Song
@@ -46,13 +46,13 @@ interface SongDao {
     fun getRandomSongs(maxSongs: Int): List<Song>
 
     @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT :maxSongs")
-    fun getRandomSongsForBand(bandId: Int, maxSongs: Int): List<Song>
+    fun getRandomSongsForBand(bandId: Long, maxSongs: Int): List<Song>
 
     @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT 1")
-    fun getRandomSongForBand(bandId: Int): Song
+    fun getRandomSongForBand(bandId: Long): Song
 
     @Query("SELECT * from song WHERE albumId = :albumId ORDER BY random() LIMIT 1")
-    fun getRandomSongForAlbum(albumId: Int): Song
+    fun getRandomSongForAlbum(albumId: Long): Song
 
     @Query("SELECT DISTINCT (year/10)*10 from Song WHERE year > 1900 ORDER BY year")
     fun getDecades(): List<Int>

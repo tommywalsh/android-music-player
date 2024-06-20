@@ -12,6 +12,7 @@ import su.thepeople.musicplayer.databinding.ActivityMainBinding
 // Each variant of this application must provide a global variable CUSTOMIZER that implements this:
 abstract class MainUICustomizer {
     abstract fun onCreateActivity(ui: Activity, mainView: View)
+    abstract fun onNewSongLoaded()
 }
 
 /**

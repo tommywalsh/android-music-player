@@ -8,6 +8,7 @@ import android.view.View
  */
 class DeviceCustomizer : MainUICustomizer() {
     override fun onCreateActivity(ui: Activity, mainView: View) {}
+    override fun onNewSongLoaded() {}
 }
 
 val CUSTOMIZER: MainUICustomizer = DeviceCustomizer()

@@ -1,7 +1,6 @@
 package su.thepeople.musicplayer.data
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
@@ -17,20 +16,20 @@ import androidx.room.Query
  */
 @Entity
 data class Album (
-    @PrimaryKey(autoGenerate = true) val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Long,
     val name: String,
     val path: String,
-    val bandId: Int,
+    val bandId: Long,
     val year: String? = null
     )
 
 @Dao
 interface AlbumDao {
     @Query("SELECT * from album WHERE bandId = :bandId ORDER BY year, name")
-    fun getAllForBand(bandId: Int): List<Album>
+    fun getAllForBand(bandId: Long): List<Album>
 
     @Query("SELECT * from album WHERE id = :albumId")
-    fun get(albumId: Int): Album
+    fun get(albumId: Long): Album
 
     @Query("SELECT * from album ORDER BY random() LIMIT 1")
     fun getRandomAlbum(): Album
@@ -38,6 +37,6 @@ interface AlbumDao {
     @Insert
     fun insert(album: Album): Long
 
-    @Delete
-    fun delete(album: Album)
+    @Query("DELETE FROM album WHERE id = :albumId")
+    fun delete(albumId: Long)
 }

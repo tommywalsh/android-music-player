@@ -162,7 +162,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 Futures.immediateFuture(LibraryResult.ofItem(bandGroupItem(internalStringId(mediaId)), null))
             }
             mediaId.startsWith(BAND_PREFIX) -> {
-                val bandId = internalIntId(mediaId)
+                val bandId = internalIntId(mediaId).toLong()
                 return database.async {
                     val band = database.bandDao().get(bandId)
                     val item = database.mediaItem(band)
@@ -170,7 +170,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             mediaId.startsWith(ALBUM_PREFIX) -> {
-                val albumId = internalIntId(mediaId)
+                val albumId = internalIntId(mediaId).toLong()
                 return database.async {
                     val album = database.albumDao().get(albumId)
                     val item = database.mediaItem(album)
@@ -178,7 +178,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             mediaId.startsWith(SONG_PREFIX) -> {
-                val songId = internalIntId(mediaId)
+                val songId = internalIntId(mediaId).toLong()
                 return database.async {
                     val item = database.songDao().get(songId)?.let {song->
                         LibraryResult.ofItem(database.mediaItem(song), null)
@@ -279,7 +279,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             parentId.startsWith(BAND_PREFIX) -> {
-                val bandId = internalIntId(parentId)
+                val bandId = internalIntId(parentId).toLong()
                 return database.async {
                     val albums = database.albumDao().getAllForBand(bandId)
                     val albumItems = albums.map { database.mediaItem(it) }
@@ -289,7 +289,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                 }
             }
             parentId.startsWith(ALBUM_PREFIX) -> {
-                val albumId = internalIntId(parentId)
+                val albumId = internalIntId(parentId).toLong()
                 return database.async {
                     val songs = database.songDao().getSongsForAlbum(albumId)
                     val items = songs.map {database.mediaItem(it)}

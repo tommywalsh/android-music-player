@@ -14,6 +14,7 @@ import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.internalIntId
 import su.thepeople.musicplayer.onSuccess
 import su.thepeople.musicplayer.successCallback
+import su.thepeople.musicplayer.ui.CUSTOMIZER
 
 enum class MajorMode {
     COLLECTION,
@@ -70,9 +71,11 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     /**
      * Every time the player jumps to a new song, we check if the player is about to run out of songs, and if so, we send more.
+     * We also give our customization layer the opportunity to react.
      */
     private var transitionListener = object: Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            CUSTOMIZER.onNewSongLoaded()
             if(!androidPlayer.hasNextMediaItem()) {
                 requestNextBatch(false)
             }
@@ -83,7 +86,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
         Log.d("McotpService","Initializing player")
         config?.let{ goodConfig ->
             Log.d("McotpService","Initializing player with config")
-            val initialSongId = goodConfig.songId?.let{ extId -> internalIntId(extId)}
+            val initialSongId = goodConfig.songId?.let{ extId -> internalIntId(extId).toLong()}
             initialSongId?.let {songId ->
                 Log.d("McotpService","Initializing player with song ID %d".format(songId))
                 Futures.addCallback(
@@ -139,11 +142,11 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     private fun initProvider(config: PlayerRestartConfig) {
         provider = when(config.songProviderState.providerClass) {
-            SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0])
+            SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0].toLong())
             SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1])
             SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider()
             SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider()
-            SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0], config.songId?.let{internalIntId(it)})
+            SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), config.songId?.let{internalIntId(it).toLong()})
             else -> ShuffleProvider()
         }
         swapProvider(provider, false)
@@ -168,7 +171,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
         if (forceBandId != null || provider.mode != MajorMode.BAND) {
             val bandId = forceBandId?:androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("band")
             if (bandId != null) {
-                swapProvider(BandShuffleProvider(bandId), forceBandId != null)
+                swapProvider(BandShuffleProvider(bandId.toLong()), forceBandId != null)
                 forceBandId?.let{ androidPlayer.seekToNextMediaItem() }
             }
         } else {
@@ -197,7 +200,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
             val albumId = forceAlbumId?:androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("album")
             val songId = androidPlayer.currentMediaItem?.mediaId?.let{internalIntId(it)}
             if (albumId != null && albumId != 0) {
-                swapProvider(AlbumSequentialProvider(albumId, songId), forceAlbumId != null)
+                swapProvider(AlbumSequentialProvider(albumId.toLong(), songId?.toLong()), forceAlbumId != null)
                 forceAlbumId?.let{ androidPlayer.seekToNextMediaItem()}
             }
         } else {
@@ -244,7 +247,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
             }
             "song" -> {
                 database.async {
-                    database.songDao().get(id)?.let {
+                    database.songDao().get(id.toLong())?.let {
                         database.mediaItem(it)
                     }
                 }.onSuccess(context) { maybeItem : MediaItem? ->

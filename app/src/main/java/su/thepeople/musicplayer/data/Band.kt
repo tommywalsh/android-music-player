@@ -1,7 +1,6 @@
 package su.thepeople.musicplayer.data
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.Query
@@ -12,7 +11,7 @@ import androidx.room.PrimaryKey
  */
 @Entity
 data class Band (
-    @PrimaryKey(autoGenerate = true) val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Long,
     val name: String,
     val path: String)
 
@@ -22,7 +21,7 @@ interface BandDao {
     fun getAll(): List<Band>
 
     @Query("SELECT * from band WHERE id = :id")
-    fun get(id: Int): Band
+    fun get(id: Long): Band
 
     @Query("SELECT * from band LIMIT 1")
     fun getAny(): List<Band>
@@ -39,6 +38,6 @@ interface BandDao {
     @Insert
     fun insert(band: Band): Long
 
-    @Delete
-    fun delete(band: Band)
+    @Query("DELETE FROM band WHERE id = :bandId")
+    fun delete(bandId: Long)
 }

@@ -19,7 +19,7 @@ import java.util.concurrent.Executors
  *   val newBand = Band(NEW_OBJ_ID, "Band Name", "/path/to/band/dir")
  *   val newBandId = bandDao.insert(newBand)
  */
-const val NEW_OBJ_ID = 0
+const val NEW_OBJ_ID = 0L
 
 /**
  * Database holding information about the Music Collection of the People
@@ -57,11 +57,11 @@ abstract class Database : RoomDatabase() {
 
     private fun dbIdBundle(song: Song): Bundle {
         val bundle = Bundle()
-        bundle.putInt("band", song.bandId)
+        bundle.putInt("band", song.bandId.toInt())
         if (song.albumId != null) {
-            bundle.putInt("album", song.albumId)
+            bundle.putInt("album", song.albumId.toInt())
         }
-        bundle.putInt("song", song.id)
+        bundle.putInt("song", song.id.toInt())
         return bundle
     }
 
