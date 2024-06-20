@@ -1,6 +1,5 @@
 - Maybe restore former song playtime after restart?
 - Improve look and feel of library, perhaps by using buttons instead of labels?
-- UI will sometimes still show the wrong playstate. It's unclear how to reproduce this reliably.
 - Can we move special permissions into build variant subdirectories (so normal app doesn't need to declare bluetooth and lock permissions)
 ---
 

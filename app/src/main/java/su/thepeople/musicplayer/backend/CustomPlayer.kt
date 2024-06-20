@@ -84,20 +84,8 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     init {
         Log.d("McotpService","Initializing player")
-        config?.let{ goodConfig ->
-            Log.d("McotpService","Initializing player with config")
-            val initialSongId = goodConfig.songId?.let{ extId -> internalIntId(extId).toLong()}
-            initialSongId?.let {songId ->
-                Log.d("McotpService","Initializing player with song ID %d".format(songId))
-                Futures.addCallback(
-                    database.async {database.songDao().get(songId)?.let{database.mediaItem(it)}},
-                    successCallback{mediaItem ->
-                        Log.d("McotpService","Got media item from database".format(songId))
-                        mediaItem?.let{androidPlayer.setMediaItem(it)}
-                        initProvider(goodConfig)},
-                    ContextCompat.getMainExecutor(context))
-            } ?: initProvider(goodConfig)
-        } ?: requestNextBatch(false)
+        val provider = SongProvider.fromRestartConfig(config)
+        swapProvider(provider, true)
         androidPlayer.addListener(transitionListener)
     }
 
@@ -138,18 +126,6 @@ class CustomPlayer(private val database: Database, private val context: Context,
             future,
             successCallback{ songs -> onIncomingSongBatch(songs, playNow)},
             ContextCompat.getMainExecutor(context))
-    }
-
-    private fun initProvider(config: PlayerRestartConfig) {
-        provider = when(config.songProviderState.providerClass) {
-            SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0].toLong())
-            SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1])
-            SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider()
-            SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider()
-            SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), config.songId?.let{internalIntId(it).toLong()})
-            else -> ShuffleProvider()
-        }
-        swapProvider(provider, false)
     }
 
     private fun swapProvider(newProvider: SongProvider, switchNow: Boolean) {

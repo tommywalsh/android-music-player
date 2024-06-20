@@ -8,6 +8,7 @@ import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
 import com.google.common.collect.Lists
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
+import su.thepeople.musicplayer.data.internalIntId
 import kotlin.random.Random
 
 class SongProviderState(val providerClass : ProviderClass, val optionalParams : List<Int>? = null) {
@@ -21,16 +22,46 @@ class SongProviderState(val providerClass : ProviderClass, val optionalParams : 
     }
 }
 
-abstract class SongProvider {
+abstract class SongProvider(initialSongId: Long? = null) {
+
+    private var forcedSongId = initialSongId
+
     // Subclasses must implement this function.
     // TODO: should there be a way for an implementation to signal that there are no more songs?
-    abstract fun getNextBatch(database: Database): List<Song>
+    protected abstract fun getNextBatchImpl(database: Database): List<Song>
 
+    fun getNextBatch(database: Database): List<Song> {
+        val batch = forcedSongId?.let {
+            getSingleSong(database, it)
+        }?: getNextBatchImpl(database)
+        forcedSongId = null
+        return batch
+    }
     abstract fun getRestartConfig(): SongProviderState
 
     abstract val mode: MajorMode
     abstract val mediaType: Int // From Android's MediaMetadata.MEDIA_TYPE_XXX definitions
     open val subTypeLabel = ""
+
+    private fun getSingleSong(database:Database, songId: Long): List<Song> {
+        return listOf(database.songDao().get(songId)!!)
+    }
+
+    companion object {
+        fun fromRestartConfig(maybeConfig: PlayerRestartConfig?): SongProvider {
+            return maybeConfig?.let { config ->
+                val songId = internalIntId(config.songId!!).toLong()
+                when(config.songProviderState.providerClass) {
+                    SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
+                    SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1], songId)
+                    SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider(songId)
+                    SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider(songId)
+                    SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
+                    else -> ShuffleProvider()
+                }
+            } ?: ShuffleProvider()
+        }
+    }
 }
 
 const val PREFERRED_BATCH_SIZE = 10
@@ -62,7 +93,7 @@ class ShuffleProvider: SongProvider() {
         return database.songDao().getRandomSongForAlbum(album.id)
     }
 
-    override fun getNextBatch(database: Database): List<Song> {
+    override fun getNextBatchImpl(database: Database): List<Song> {
         return (0..PREFERRED_BATCH_SIZE).map {
             when (Random.nextInt(0,3)) {
                 0 -> {
@@ -83,11 +114,11 @@ class ShuffleProvider: SongProvider() {
     }
 }
 
-class BandShuffleProvider(private val bandId: Long): SongProvider() {
+class BandShuffleProvider(private val bandId: Long, forcedStartSongId: Long? = null): SongProvider(forcedStartSongId) {
     override val mode = MajorMode.BAND
     override val mediaType = MEDIA_TYPE_ARTIST
 
-    override fun getNextBatch(database: Database): List<Song> {
+    override fun getNextBatchImpl(database: Database): List<Song> {
         return database.songDao().getRandomSongsForBand(bandId, PREFERRED_BATCH_SIZE)
     }
 
@@ -96,10 +127,10 @@ class BandShuffleProvider(private val bandId: Long): SongProvider() {
     }
 }
 
-open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int): SongProvider() {
+open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int, initialSongId: Long? = null): SongProvider(initialSongId) {
     override val mode = MajorMode.YEAR
     override val mediaType = MEDIA_TYPE_YEAR
-    override fun getNextBatch(database: Database): List<Song> {
+    override fun getNextBatchImpl(database: Database): List<Song> {
         return database.songDao().getSongsForYearRange(startYear, endYear, PREFERRED_BATCH_SIZE)
     }
 
@@ -111,7 +142,7 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
 class DecadeShuffleProvider(startYear: Int): YearRangeShuffleProvider(startYear, startYear + 9)
 class YearShuffleProvider(year: Int): YearRangeShuffleProvider(year, year)
 
-class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null): SongProvider() {
+class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null): SongProvider(currentSongId) {
     override val mode = MajorMode.ALBUM
     override val mediaType = MEDIA_TYPE_ALBUM
 
@@ -143,7 +174,7 @@ class AlbumSequentialProvider(private val albumId: Long, private var currentSong
         return lateAlbum + earlyAlbum
     }
 
-    override fun getNextBatch(database: Database): List<Song> {
+    override fun getNextBatchImpl(database: Database): List<Song> {
         return if (isCompleted) {
             Log.d("SongProvider", "Album provider has already completed.")
             ArrayList()
@@ -159,7 +190,7 @@ class AlbumSequentialProvider(private val albumId: Long, private var currentSong
     }
 }
 
-class DoubleShotProvider: SongProvider() {
+class DoubleShotProvider(initialSongId: Long? = null): SongProvider(initialSongId) {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
     companion object {
@@ -169,7 +200,7 @@ class DoubleShotProvider: SongProvider() {
         get() {return subType }
 
 
-    override fun getNextBatch(database: Database): List<Song> {
+    override fun getNextBatchImpl(database: Database): List<Song> {
         val band = database.bandDao().getRandomBand()
         Log.d("SongProvider", "Requesting 2 songs for band ${band.id} ${band.name}")
         return database.songDao().getRandomSongsForBand(band.id, 2)
@@ -180,7 +211,7 @@ class DoubleShotProvider: SongProvider() {
     }
 }
 
-class BlockPartyProvider: SongProvider() {
+class BlockPartyProvider(initialSongId: Long? = null): SongProvider(initialSongId) {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
     companion object {
@@ -193,7 +224,7 @@ class BlockPartyProvider: SongProvider() {
 
     private var doBlockNext = true
 
-    override fun getNextBatch(database: Database): List<Song> {
+    override fun getNextBatchImpl(database: Database): List<Song> {
         val songs = if (doBlockNext) {
             val band = database.bandDao().getRandomBand()
             database.songDao().getRandomSongsForBand(band.id, blockSize)
