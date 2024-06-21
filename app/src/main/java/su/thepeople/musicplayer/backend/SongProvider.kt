@@ -56,7 +56,7 @@ abstract class SongProvider(initialSongId: Long? = null) {
                     SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1], songId)
                     SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider(songId)
                     SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider(songId)
-                    SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
+                    SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), songId, true)
                     else -> ShuffleProvider()
                 }
             } ?: ShuffleProvider()
@@ -142,7 +142,9 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
 class DecadeShuffleProvider(startYear: Int): YearRangeShuffleProvider(startYear, startYear + 9)
 class YearShuffleProvider(year: Int): YearRangeShuffleProvider(year, year)
 
-class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null): SongProvider(currentSongId) {
+class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null, replayCurrent: Boolean = false):
+    SongProvider(if (replayCurrent) currentSongId else null)
+{
     override val mode = MajorMode.ALBUM
     override val mediaType = MEDIA_TYPE_ALBUM
 
