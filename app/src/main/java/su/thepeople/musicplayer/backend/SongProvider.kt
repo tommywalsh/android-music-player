@@ -6,6 +6,7 @@ import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
 import com.google.common.collect.Lists
+import su.thepeople.musicplayer.backend.DoubleShotProvider.Companion
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
 import su.thepeople.musicplayer.data.internalIntId
@@ -15,6 +16,7 @@ class SongProviderState(val providerClass : ProviderClass, val optionalParams : 
     enum class ProviderClass {
         CATALOG_SHUFFLE,
         BAND_SHUFFLE,
+        BAND_SEQUENTIAL,
         YEAR_SHUFFLE,
         ALBUM_SEQUENTIAL,
         DOUBLE_SHOT,
@@ -52,7 +54,9 @@ abstract class SongProvider(initialSongId: Long? = null) {
             return maybeConfig?.let { config ->
                 val songId = internalIntId(config.songId!!).toLong()
                 when(config.songProviderState.providerClass) {
+                    // TODO: Both sequential providers will restart from scratch as if the current song is the first in the list, but they should simply continue at their former list position
                     SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
+                    SongProviderState.ProviderClass.BAND_SEQUENTIAL -> BandSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
                     SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1], songId)
                     SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider(songId)
                     SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider(songId)
@@ -124,6 +128,60 @@ class BandShuffleProvider(private val bandId: Long, forcedStartSongId: Long? = n
 
     override fun getRestartConfig(): SongProviderState {
         return SongProviderState(SongProviderState.ProviderClass.BAND_SHUFFLE, Lists.newArrayList(bandId.toInt()))
+    }
+}
+
+class BandSequentialProvider(private val bandId: Long, private val forcedStartSongId: Long? = null): SongProvider(forcedStartSongId) {
+    override val mode = MajorMode.BAND
+    override val mediaType = MEDIA_TYPE_ARTIST
+
+    companion object {
+        const val subType = "Sequential Mode"
+    }
+    override val subTypeLabel: String
+        get() {return BandSequentialProvider.subType }
+
+    /**
+     * This provider has two modes:
+     * - Play all the bands songs in chronological order, starting from the earliest and ending at the latest.
+     * - Play in chronological order, starting from the given song to the latest, then loop back and play from the earliest, to just before the given song. Then terminate.
+     */
+
+    private var isCompleted = false
+
+    private fun getFullList(database: Database): List<Song> {
+        return database.songDao().getSequentialSongsForBand(bandId)
+    }
+
+    private fun getPartitionedSongs(database: Database, partitionId: Long): List<Song> {
+        val fullList = getFullList(database)
+        val earlyList = ArrayList<Song>()
+        val lateList = ArrayList<Song>()
+        var workingList = earlyList
+        fullList.forEach{ song ->
+            if (song.id == partitionId) {
+                // We've completed the early part of the album. Next song will be on the late part.
+                workingList = lateList
+            } else {
+                workingList.add(song)
+            }
+        }
+        return lateList + earlyList
+    }
+
+    override fun getNextBatchImpl(database: Database): List<Song> {
+        return if (isCompleted) {
+            Log.d("SongProvider", "Sequential provider has already completed.")
+            ArrayList()
+        } else {
+            isCompleted = true
+            Log.d("SongProvider", "Sequential provider starting.")
+            forcedStartSongId?.let{id->getPartitionedSongs(database, id)} ?: getFullList(database)
+        }
+    }
+
+    override fun getRestartConfig(): SongProviderState {
+        return SongProviderState(SongProviderState.ProviderClass.BAND_SEQUENTIAL, Lists.newArrayList(bandId.toInt()))
     }
 }
 

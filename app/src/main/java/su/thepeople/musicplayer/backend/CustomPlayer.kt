@@ -198,6 +198,20 @@ class CustomPlayer(private val database: Database, private val context: Context,
                     swapProvider(DoubleShotProvider(), false)
                 }
             }
+        } else if (provider.mode == MajorMode.BAND){
+            val bandId = androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("band")?.toLong()
+            bandId?.let {
+                when (provider.subTypeLabel) {
+                    BandSequentialProvider.subType -> {
+                        swapProvider(BandShuffleProvider(bandId), false)
+                    } else -> {
+                        val songId = androidPlayer.currentMediaItem?.mediaMetadata?.extras?.getInt("song")?.toLong()
+                        songId?.let {
+                            swapProvider(BandSequentialProvider(bandId, songId), false)
+                        }
+                    }
+                }
+            }
         }
     }
 

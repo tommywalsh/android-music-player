@@ -1,3 +1,13 @@
+Song provider is kinda a mess
+ - hard-coded strings for sub modes, used both in displays and in program logic
+ - band sequential always repeats first song
+Needs a redesign which should support all known uses without weird special-case code
+---
+Customized back and forward presses, which can vary based on context
+Back: to beginning of song, to previous song, to beginning of album, to beginning of full list
+Forward: to next song, to next album
+
+---
 - Maybe restore former song playtime after restart?
 - Improve look and feel of library, perhaps by using buttons instead of labels?
 - Can we move special permissions into build variant subdirectories (so normal app doesn't need to declare bluetooth and lock permissions)
