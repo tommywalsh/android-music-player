@@ -6,7 +6,6 @@ import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
 import com.google.common.collect.Lists
-import su.thepeople.musicplayer.backend.DoubleShotProvider.Companion
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
 import su.thepeople.musicplayer.data.internalIntId
@@ -139,7 +138,7 @@ class BandSequentialProvider(private val bandId: Long, private val forcedStartSo
         const val subType = "Sequential Mode"
     }
     override val subTypeLabel: String
-        get() {return BandSequentialProvider.subType }
+        get() {return subType }
 
     /**
      * This provider has two modes:
@@ -284,10 +283,26 @@ class BlockPartyProvider(initialSongId: Long? = null): SongProvider(initialSongI
 
     private var doBlockNext = true
 
+    private fun getAnyBlock(database:Database): List<Song> {
+        val band = database.bandDao().getRandomBand()
+        return database.songDao().getRandomSongsForBand(band.id, blockSize)
+    }
+
+    private fun getFullBlock(database: Database): List<Song> {
+        // Try to find a band with enough songs to fill the block count, but only try a few times
+        for (i in 1..5) {
+            val list = getAnyBlock(database)
+            if (list.size >= blockSize) {
+                return list
+            }
+        }
+        // So far, no success for a large-enough block. Try once more and accept whatever we find
+        return getAnyBlock(database)
+    }
+
     override fun getNextBatchImpl(database: Database): List<Song> {
         val songs = if (doBlockNext) {
-            val band = database.bandDao().getRandomBand()
-            database.songDao().getRandomSongsForBand(band.id, blockSize)
+            getFullBlock(database)
         } else {
             database.songDao().getRandomSongs(blockSize)
         }

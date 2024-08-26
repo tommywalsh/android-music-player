@@ -6,7 +6,8 @@ Needs a redesign which should support all known uses without weird special-case 
 Customized back and forward presses, which can vary based on context
 Back: to beginning of song, to previous song, to beginning of album, to beginning of full list
 Forward: to next song, to next album
-
+---
+Data reported to bluetooth controller should come from MCotP, and should not use in-file MP3 tags!
 ---
 - Maybe restore former song playtime after restart?
 - Improve look and feel of library, perhaps by using buttons instead of labels?
