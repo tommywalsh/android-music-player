@@ -98,7 +98,8 @@ class ShuffleProvider: SongProvider() {
 
     override fun getNextBatchImpl(database: Database): List<Song> {
         return (0..PREFERRED_BATCH_SIZE).map {
-            when (Random.nextInt(0,3)) {
+            // Use unweighted strategy appx. twice as often as the other two
+            when (Random.nextInt(0,4)) {
                 0 -> {
                     getAlbumWeightedSong(database)
                 }
