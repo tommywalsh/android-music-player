@@ -5,24 +5,20 @@ import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ALBUM
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
-import com.google.common.collect.Lists
+import org.json.JSONObject
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.Song
-import su.thepeople.musicplayer.data.internalIntId
 import kotlin.random.Random
 
-class SongProviderState(val providerClass : ProviderClass, val optionalParams : List<Int>? = null) {
-    enum class ProviderClass {
-        CATALOG_SHUFFLE,
-        BAND_SHUFFLE,
-        BAND_SEQUENTIAL,
-        YEAR_SHUFFLE,
-        ALBUM_SEQUENTIAL,
-        DOUBLE_SHOT,
-        BLOCK_PARTY
-    }
+enum class ProviderClass {
+    CATALOG_SHUFFLE,
+    BAND_SHUFFLE,
+    BAND_SEQUENTIAL,
+    YEAR_SHUFFLE,
+    ALBUM_SEQUENTIAL,
+    DOUBLE_SHOT,
+    BLOCK_PARTY
 }
-
 abstract class SongProvider(initialSongId: Long? = null) {
 
     private var forcedSongId = initialSongId
@@ -38,7 +34,8 @@ abstract class SongProvider(initialSongId: Long? = null) {
         forcedSongId = null
         return batch
     }
-    abstract fun getRestartConfig(): SongProviderState
+
+    abstract fun getInternalState(): JSONObject
 
     abstract val mode: MajorMode
     abstract val mediaType: Int // From Android's MediaMetadata.MEDIA_TYPE_XXX definitions
@@ -49,20 +46,17 @@ abstract class SongProvider(initialSongId: Long? = null) {
     }
 
     companion object {
-        fun fromRestartConfig(maybeConfig: PlayerRestartConfig?): SongProvider {
-            return maybeConfig?.let { config ->
-                val songId = internalIntId(config.songId!!).toLong()
-                when(config.songProviderState.providerClass) {
-                    // TODO: Both sequential providers will restart from scratch as if the current song is the first in the list, but they should simply continue at their former list position
-                    SongProviderState.ProviderClass.BAND_SHUFFLE -> BandShuffleProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
-                    SongProviderState.ProviderClass.BAND_SEQUENTIAL -> BandSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), songId)
-                    SongProviderState.ProviderClass.YEAR_SHUFFLE -> YearRangeShuffleProvider(config.songProviderState.optionalParams!![0], config.songProviderState.optionalParams[1], songId)
-                    SongProviderState.ProviderClass.BLOCK_PARTY -> BlockPartyProvider(songId)
-                    SongProviderState.ProviderClass.DOUBLE_SHOT -> DoubleShotProvider(songId)
-                    SongProviderState.ProviderClass.ALBUM_SEQUENTIAL -> AlbumSequentialProvider(config.songProviderState.optionalParams!![0].toLong(), songId, true)
-                    else -> ShuffleProvider()
-                }
-            } ?: ShuffleProvider()
+        fun fromSavedState(savedState: JSONObject): SongProvider {
+            return when(savedState.optInt("type", ProviderClass.CATALOG_SHUFFLE.ordinal)) {
+                ProviderClass.CATALOG_SHUFFLE.ordinal -> ShuffleProvider.reconstruct()
+                ProviderClass.BAND_SHUFFLE.ordinal -> BandShuffleProvider.reconstruct(savedState)
+                ProviderClass.BAND_SEQUENTIAL.ordinal -> BandSequentialProvider.reconstruct(savedState)
+                ProviderClass.YEAR_SHUFFLE.ordinal -> YearRangeShuffleProvider.reconstruct(savedState)
+                ProviderClass.BLOCK_PARTY.ordinal -> BlockPartyProvider()
+                ProviderClass.DOUBLE_SHOT.ordinal -> DoubleShotProvider()
+                ProviderClass.ALBUM_SEQUENTIAL.ordinal -> AlbumSequentialProvider.reconstruct(savedState)
+                else -> ShuffleProvider.reconstruct()
+            }
         }
     }
 }
@@ -113,8 +107,14 @@ class ShuffleProvider: SongProvider() {
         }
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.CATALOG_SHUFFLE)
+    override fun getInternalState(): JSONObject {
+        return JSONObject().put("type", ProviderClass.CATALOG_SHUFFLE.ordinal)
+    }
+
+    companion object {
+        fun reconstruct(): ShuffleProvider {
+            return ShuffleProvider()
+        }
     }
 }
 
@@ -126,8 +126,16 @@ class BandShuffleProvider(private val bandId: Long, forcedStartSongId: Long? = n
         return database.songDao().getRandomSongsForBand(bandId, PREFERRED_BATCH_SIZE)
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.BAND_SHUFFLE, Lists.newArrayList(bandId.toInt()))
+    override fun getInternalState(): JSONObject {
+        return JSONObject()
+            .put("type", ProviderClass.BAND_SHUFFLE.ordinal)
+            .put("bandId", bandId)
+    }
+
+    companion object {
+        fun reconstruct(savedState: JSONObject): BandShuffleProvider {
+            return BandShuffleProvider(savedState.getLong("bandId"))
+        }
     }
 }
 
@@ -135,9 +143,6 @@ class BandSequentialProvider(private val bandId: Long, private val forcedStartSo
     override val mode = MajorMode.BAND
     override val mediaType = MEDIA_TYPE_ARTIST
 
-    companion object {
-        const val subType = "Sequential Mode"
-    }
     override val subTypeLabel: String
         get() {return subType }
 
@@ -180,9 +185,26 @@ class BandSequentialProvider(private val bandId: Long, private val forcedStartSo
         }
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.BAND_SEQUENTIAL, Lists.newArrayList(bandId.toInt()))
+    override fun getInternalState(): JSONObject {
+        val state = JSONObject()
+            .put("type", ProviderClass.BAND_SEQUENTIAL.ordinal)
+            .put("bandId", bandId)
+            .put("isCompleted", isCompleted)
+        forcedStartSongId?.let{state.put("forcedStartSongId", it)}
+        return state
     }
+
+    companion object {
+        const val subType = "Sequential Mode"
+        fun reconstruct(savedState: JSONObject): BandSequentialProvider {
+            val songId = savedState.optLong("forcedStartSongId", -1L)
+            val songParam = if (songId == -1L) null else songId
+            val provider = BandSequentialProvider(savedState.getLong("bandId"), songParam)
+            provider.isCompleted = savedState.getBoolean("isCompleted")
+            return provider
+        }
+    }
+
 }
 
 open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int, initialSongId: Long? = null): SongProvider(initialSongId) {
@@ -192,8 +214,17 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
         return database.songDao().getSongsForYearRange(startYear, endYear, PREFERRED_BATCH_SIZE)
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.YEAR_SHUFFLE, Lists.newArrayList(startYear, endYear))
+    override fun getInternalState(): JSONObject {
+        return JSONObject()
+            .put("type", ProviderClass.YEAR_SHUFFLE.ordinal)
+            .put("startYear", startYear)
+            .put("endYear", endYear)
+    }
+
+    companion object {
+        fun reconstruct(savedState: JSONObject): YearRangeShuffleProvider {
+            return YearRangeShuffleProvider(savedState.getInt("startYear"), savedState.getInt("endYear"))
+        }
     }
 }
 
@@ -245,8 +276,26 @@ class AlbumSequentialProvider(private val albumId: Long, private var currentSong
         }
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.ALBUM_SEQUENTIAL, Lists.newArrayList(albumId.toInt()))
+    override fun getInternalState(): JSONObject {
+        val state = JSONObject()
+            .put("type", ProviderClass.ALBUM_SEQUENTIAL.ordinal)
+            .put("albumId", albumId)
+            .put("isCompleted", isCompleted)
+        currentSongId?.let{state.put("partitionId", it)}
+        return state
+    }
+
+    companion object {
+        fun reconstruct(savedState: JSONObject): AlbumSequentialProvider {
+            val provider = AlbumSequentialProvider(savedState.getLong("albumId"))
+            val partition = savedState.optLong("partitionId", -1L)
+            if (partition != -1L) {
+                provider.currentSongId = partition
+            }
+            provider.isCompleted = savedState.getBoolean("isCompleted")
+            return provider
+        }
+
     }
 }
 
@@ -266,8 +315,9 @@ class DoubleShotProvider(initialSongId: Long? = null): SongProvider(initialSongI
         return database.songDao().getRandomSongsForBand(band.id, 2)
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.DOUBLE_SHOT)
+    override fun getInternalState(): JSONObject {
+        return JSONObject()
+            .put("type", ProviderClass.DOUBLE_SHOT.ordinal)
     }
 }
 
@@ -311,7 +361,8 @@ class BlockPartyProvider(initialSongId: Long? = null): SongProvider(initialSongI
         return songs
     }
 
-    override fun getRestartConfig(): SongProviderState {
-        return SongProviderState(SongProviderState.ProviderClass.BLOCK_PARTY)
+    override fun getInternalState(): JSONObject {
+        return JSONObject()
+            .put("type", ProviderClass.BLOCK_PARTY.ordinal)
     }
 }

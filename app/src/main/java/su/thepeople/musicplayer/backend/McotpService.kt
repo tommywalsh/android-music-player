@@ -9,7 +9,10 @@ import android.util.Log
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.room.Room
+import org.json.JSONObject
 import su.thepeople.musicplayer.data.Database
+import java.io.File
+import java.nio.charset.StandardCharsets
 
 /**
  * Android's media API awkwardly lumps together two different tasks:
@@ -36,13 +39,19 @@ class McotpService : MediaLibraryService() {
         val key = "mcotp_restart"
         val prefs = applicationContext.getSharedPreferences(key, Context.MODE_PRIVATE)
         Log.d("McotpService", prefs.toString())
-        val config = recoverConfig(prefs, key)
-        Log.d("McotpService", config.toString())
-        customPlayer = CustomPlayer(database, applicationContext, config)
+
+
+        val stateFile = File(applicationContext.filesDir, "player_state.json")
+        val playerState = if (stateFile.isFile) {
+            JSONObject(stateFile.readText(StandardCharsets.UTF_8))
+        } else {
+            null
+        }
+
+        customPlayer = CustomPlayer(database, applicationContext, playerState)
 
         librarySession = McotpLibrarySession(applicationContext, customPlayer)
         mediaSession = MediaLibrarySession.Builder(this, customPlayer.playerAPIHandler, librarySession).setId("mcotp").build()
-
 
         startBackgroundScan()
 
@@ -60,12 +69,14 @@ class McotpService : MediaLibraryService() {
         }
     }
 
-    override fun onDestroy() {
-        val key = "mcotp_restart"
-        val config = customPlayer.getRestartConfig()
-        val prefs = applicationContext.getSharedPreferences(key, Context.MODE_PRIVATE)
-        config.persist(prefs, key)
+    private fun persistState() {
+        val playerState = customPlayer.getInternalState()
+        val stateFile = File(applicationContext.filesDir, "player_state.json")
+        stateFile.writeText(playerState.toString(2), StandardCharsets.UTF_8)
+    }
 
+    override fun onDestroy() {
+        persistState()
         unregisterReceiver(silencer)
         customPlayer.release()
         mediaSession.release()
@@ -85,8 +96,4 @@ class McotpService : MediaLibraryService() {
             }
         }
     }
-
-
-
-    // TODO: Clean separation between service, session manager, library navigator, music player
 }

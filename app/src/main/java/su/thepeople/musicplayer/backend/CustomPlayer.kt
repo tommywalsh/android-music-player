@@ -1,7 +1,6 @@
 package su.thepeople.musicplayer.backend
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -9,10 +8,15 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.google.common.collect.Lists
 import com.google.common.util.concurrent.Futures
+import org.json.JSONArray
+import org.json.JSONObject
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.internalIntId
 import su.thepeople.musicplayer.onSuccess
+import su.thepeople.musicplayer.songMediaItemFromJSON
+import su.thepeople.musicplayer.songMediaItemToJSON
 import su.thepeople.musicplayer.successCallback
 import su.thepeople.musicplayer.ui.CUSTOMIZER
 
@@ -23,36 +27,6 @@ enum class MajorMode {
     YEAR
 }
 
-class PlayerRestartConfig(val songProviderState: SongProviderState, val songId: String?) {
-    fun persist(prefs : SharedPreferences, prefix: String) {
-        with (prefs.edit()) {
-            putString(prefix + "song_id", songId)
-            putString(prefix + "provider_type", songProviderState.providerClass.toString())
-            var i = 0
-            songProviderState.optionalParams?.forEach {
-                putInt(prefix + "param" + i.toString(), it)
-                i += 1
-            }
-            putInt(prefix + "param" + i.toString(), -1)
-            apply()
-        }
-    }
-}
-
-fun recoverConfig(prefs: SharedPreferences, prefix: String) : PlayerRestartConfig? {
-    val songId = prefs.getString(prefix + "song_id", null) ?: return null
-    val providerClass = prefs.getString(prefix + "provider_type", null) ?: return null
-    val params = ArrayList<Int>()
-    var i = 0
-    while (true) {
-        val param = prefs.getInt(prefix + "param" + i.toString(), -1)
-        if (param == -1) break
-        params.add(param)
-        i += 1
-    }
-    return PlayerRestartConfig(SongProviderState(SongProviderState.ProviderClass.valueOf(providerClass), params), songId)
-}
-
 /**
  * The Android "media3" API mushed together two different concepts: music playback, and library exploration.  This class
  * handles solely the music playback.
@@ -61,7 +35,7 @@ fun recoverConfig(prefs: SharedPreferences, prefix: String) : PlayerRestartConfi
  * with "play modes" (random-playing the entire library, playing an album, etc.).  We interact with the player by loading more items onto the end of
  * its playlist, and removing any already-played items from the beginning of the playlist.
  */
-class CustomPlayer(private val database: Database, private val context: Context, config: PlayerRestartConfig?) {
+class CustomPlayer(private val database: Database, private val context: Context, previousState: JSONObject?) {
 
     private val androidPlayer = ExoPlayer.Builder(context).build()
 
@@ -84,8 +58,29 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     init {
         Log.d("McotpService","Initializing player")
-        val provider = SongProvider.fromRestartConfig(config)
-        swapProvider(provider, true)
+
+        if (previousState != null) {
+            val providerState = previousState.getJSONObject("provider")
+            val newProvider = SongProvider.fromSavedState(providerState)
+            swapProvider(newProvider, true)
+
+            val mediaItems = Lists.newArrayList<MediaItem>()
+            if (previousState.has("currentItem")) {
+                val currentSongJSON = previousState.getJSONObject("currentItem")
+                val currentMediaItem = songMediaItemFromJSON(currentSongJSON)
+                androidPlayer.setMediaItem(currentMediaItem)
+                mediaItems.add(currentMediaItem)
+            }
+
+            val futureSongJSONs = previousState.getJSONArray("futureItems")
+            for (i in 0..<futureSongJSONs.length()) {
+                val thisSongJSON = futureSongJSONs.getJSONObject(i)
+                val thisMediaItem = songMediaItemFromJSON(thisSongJSON)
+                mediaItems.add(thisMediaItem)
+            }
+            androidPlayer.addMediaItems(mediaItems)
+        }
+
         androidPlayer.addListener(transitionListener)
     }
 
@@ -155,9 +150,27 @@ class CustomPlayer(private val database: Database, private val context: Context,
         }
     }
 
-    fun getRestartConfig() : PlayerRestartConfig {
-        val providerState  = provider.getRestartConfig()
-        return PlayerRestartConfig(providerState, androidPlayer.currentMediaItem?.mediaId)
+    fun getInternalState(): JSONObject {
+        val state = JSONObject()
+
+        val futureItems = JSONArray()
+        val currentItem = androidPlayer.currentMediaItem
+        val count = androidPlayer.mediaItemCount
+        var reachedFutureItems = (currentItem == null)
+        for (index in 0..count) {
+            val item = androidPlayer.getMediaItemAt(index)
+            if (reachedFutureItems) {
+                futureItems.put(songMediaItemToJSON(item))
+            } else if (item == currentItem) {
+                reachedFutureItems = true
+            }
+        }
+        currentItem?.let {
+            state.put("currentItem", songMediaItemToJSON(it))
+        }
+        state.put("futureItems", futureItems)
+        state.put("provider", provider.getInternalState())
+        return state
     }
 
     fun changeYearLock() {
