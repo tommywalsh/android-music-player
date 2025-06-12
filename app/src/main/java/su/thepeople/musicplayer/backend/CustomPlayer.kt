@@ -18,7 +18,6 @@ import su.thepeople.musicplayer.onSuccess
 import su.thepeople.musicplayer.songMediaItemFromJSON
 import su.thepeople.musicplayer.songMediaItemToJSON
 import su.thepeople.musicplayer.successCallback
-import su.thepeople.musicplayer.ui.CUSTOMIZER
 
 enum class MajorMode {
     COLLECTION,
@@ -45,11 +44,9 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     /**
      * Every time the player jumps to a new song, we check if the player is about to run out of songs, and if so, we send more.
-     * We also give our customization layer the opportunity to react.
      */
     private var transitionListener = object: Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            CUSTOMIZER.onNewSongLoaded()
             if(!androidPlayer.hasNextMediaItem()) {
                 requestNextBatch(false)
             }
@@ -157,7 +154,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
         val currentItem = androidPlayer.currentMediaItem
         val count = androidPlayer.mediaItemCount
         var reachedFutureItems = (currentItem == null)
-        for (index in 0..count) {
+        for (index in 0..< count) {
             val item = androidPlayer.getMediaItemAt(index)
             if (reachedFutureItems) {
                 futureItems.put(songMediaItemToJSON(item))

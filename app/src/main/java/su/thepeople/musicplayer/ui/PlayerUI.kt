@@ -170,6 +170,7 @@ class PlayerUILogic(binding: PlayerUiBinding, private val player: MediaControlle
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             Log.d("PlayerUI", "Playlist metadata tranitioning, with media type ${mediaItem}?.mediaType}")
             mediaItem?.let {updateSongInfo(it)}
+            mainUI.onSongChange()
         }
     }
 

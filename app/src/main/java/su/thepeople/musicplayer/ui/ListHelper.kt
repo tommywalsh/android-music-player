@@ -85,7 +85,7 @@ abstract class ListHelper<B: ViewBinding>(
 
 class ChildListUI(
     model: LibraryViewModel,
-    val listView: RecyclerView,
+    private val listView: RecyclerView,
     private val layoutInflater: LayoutInflater,
     private val browseAction: (MediaItem) -> Unit,
     private val playAction: ((MediaItem) -> Unit)

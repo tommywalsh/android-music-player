@@ -15,5 +15,6 @@
     <!-- content descriptions -->
     <string name="desc_play_button">Play</string>
     <string name="desc_forward_button">Forward</string>
+    <string name="desc_lock_button">Lock</string>
 
 </resources>

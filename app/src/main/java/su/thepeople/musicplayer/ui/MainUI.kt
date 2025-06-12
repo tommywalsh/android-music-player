@@ -1,19 +1,15 @@
 package su.thepeople.musicplayer.ui
 
-import android.app.Activity
 import android.os.Bundle
 import android.view.View
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
+import org.json.JSONObject
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
-
-// Each variant of this application must provide a global variable CUSTOMIZER that implements this:
-abstract class MainUICustomizer {
-    abstract fun onCreateActivity(ui: Activity, mainView: View)
-    abstract fun onNewSongLoaded()
-}
+import java.io.File
+import java.nio.charset.StandardCharsets
 
 /**
  * Main application UI.  This class largely handles setup and teardown. Most of the app logic lives in other classes.
@@ -28,15 +24,69 @@ class MainUI : FragmentActivity() {
     private lateinit var playerUI: PlayerFragment
     private lateinit var libraryUI: LibraryFragment
     private lateinit var viewPager: ViewPager2
+    private lateinit var contentView: View
+    private lateinit var btsl: BluetoothModalController
+
+    private val extrasUI = ExtrasFragment(this)
+
+    var isModal: Boolean = false
+        private set
+
+    fun setModalFocusMode(newModal: Boolean = true) {
+        isModal = newModal
+
+        if (this::btsl.isInitialized) {
+            if (isModal) {
+                btsl.activate()
+            } else {
+                btsl.deactivate()
+            }
+        }
+    }
+
+    fun onSongChange() {
+        if (isModal and this::btsl.isInitialized) {
+            btsl.renewScreenLock()
+        }
+    }
+
+    private fun getInternalState(): JSONObject {
+        val state = JSONObject()
+        state.put("isModal", isModal)
+        return state
+    }
+
+    private fun loadSavedState() {
+        val stateFile = File(applicationContext.filesDir, "ui_state.json")
+        if (stateFile.isFile) {
+            val savedState = JSONObject(stateFile.readText(StandardCharsets.UTF_8))
+            setModalFocusMode(savedState.getBoolean("isModal"))
+        }
+    }
+
+    private fun persistState() {
+        val state = getInternalState()
+        val stateFile = File(applicationContext.filesDir, "ui_state.json")
+        stateFile.writeText(state.toString(2), StandardCharsets.UTF_8)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        loadSavedState()
+
         // Initialize the main UI
         val binding = ActivityMainBinding.inflate(layoutInflater)
+        contentView = binding.root
         setContentView(binding.root)
 
-        CUSTOMIZER.onCreateActivity(this, binding.root)
+        btsl = BluetoothModalController(this, contentView)
+
+        if (isModal) {
+            btsl.activate()
+        } else {
+            btsl.deactivate()
+        }
 
         // Initialize the helper UI fragments
         playerUI = PlayerFragment()
@@ -47,12 +97,14 @@ class MainUI : FragmentActivity() {
         viewPager.adapter = object: FragmentStateAdapter(this) {
             override fun createFragment(position: Int): Fragment {
                 return when (position) {
-                    0 -> playerUI
+                    0 -> extrasUI
+                    1 -> playerUI
                     else -> libraryUI
                 }
             }
-            override fun getItemCount() = 2
+            override fun getItemCount() = 3
         }
+        viewPager.currentItem = 1
     }
 
     override fun onStart() {
@@ -65,8 +117,13 @@ class MainUI : FragmentActivity() {
         super.onStop()
     }
 
+    override fun onDestroy() {
+        persistState()
+        super.onDestroy()
+    }
+
     fun navigateToPlayer() {
-        viewPager.currentItem = 0
+        viewPager.currentItem = 1
     }
 
     fun navigateTo(parentIds: List<String>, childId: String) {
