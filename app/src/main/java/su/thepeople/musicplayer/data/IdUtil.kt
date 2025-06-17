@@ -14,6 +14,7 @@ const val SONG_PREFIX = "song:"
 const val DECADE_PREFIX = "decade:"
 const val GROUP_PREFIX = "group:"
 const val YEAR_PREFIX = "year:"
+const val LOCATION_PREFIX = "location:"
 
 /**
  * These extension functions convert an internal integer ID to an external string ID
@@ -30,6 +31,10 @@ fun Song.externalId(): String {
     return SONG_PREFIX + id.toString()
 }
 
+fun Location.externalId(): String {
+    return LOCATION_PREFIX + id.toString()
+}
+
 /**
  * Converts an external string ID (for any type) into an internal integer ID
  */
@@ -39,4 +44,8 @@ fun internalIntId(externalId: String): Int {
 
 fun internalStringId(externalId: String): String {
     return externalId.substringAfter(":")
+}
+
+fun internalLongId(externalId: String): Long {
+    return externalId.substringAfter(":").toLong()
 }

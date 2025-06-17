@@ -1,15 +1,41 @@
 package su.thepeople.musicplayer.ui
 
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.room.Room
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import org.json.JSONObject
+import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.databinding.ActivityMainBinding
+import su.thepeople.musicplayer.tools.Scanner
+import su.thepeople.musicplayer.tools.runInBackground
 import java.io.File
 import java.nio.charset.StandardCharsets
+
+
+class NormalModeAdapter(private val mainUI: MainUI): FragmentStateAdapter(mainUI) {
+    override fun createFragment(position: Int): Fragment {
+        return when (position) {
+            0 -> mainUI.extrasUI
+            1 -> mainUI.playerUI
+            else -> mainUI.libraryUI
+        }
+    }
+    override fun getItemCount() = 3
+}
+
+class SimpleAdapter(mainUI: MainUI, private val fragment: Fragment): FragmentStateAdapter(mainUI) {
+    override fun createFragment(position: Int): Fragment {
+        return fragment
+    }
+    override fun getItemCount() = 1
+}
+
+
 
 /**
  * Main application UI.  This class largely handles setup and teardown. Most of the app logic lives in other classes.
@@ -21,13 +47,14 @@ import java.nio.charset.StandardCharsets
  */
 class MainUI : FragmentActivity() {
 
-    private lateinit var playerUI: PlayerFragment
-    private lateinit var libraryUI: LibraryFragment
+    lateinit var playerUI: PlayerFragment
+    lateinit var libraryUI: LibraryFragment
+    private val noPermissionUI = NoPermissionUI()
+    private val scanningUI = ScanningUI()
+    val extrasUI = ExtrasFragment(this)
     private lateinit var viewPager: ViewPager2
     private lateinit var contentView: View
     private lateinit var btsl: BluetoothModalController
-
-    private val extrasUI = ExtrasFragment(this)
 
     var isModal: Boolean = false
         private set
@@ -73,43 +100,85 @@ class MainUI : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        loadSavedState()
-
         // Initialize the main UI
         val binding = ActivityMainBinding.inflate(layoutInflater)
         contentView = binding.root
         setContentView(binding.root)
 
+        // Initialize the helper UI fragments
+        playerUI = PlayerFragment()
+        libraryUI = LibraryFragment()
+
+        viewPager = binding.viewPager
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        // We have three possible startup situations:
+        if (isDatabaseInitialized()) {
+            // Possibility 1: We've already scanned the music collection, and therefore we can begin normal operation immediately
+            beginNormalOperation()
+        } else {
+            // We have to be a "manager" in order to read a JSON file from the SD card!
+            if (Environment.isExternalStorageManager()) {
+                // Possibility 2: We have not scanned the collection yet, but we do have permission to do so.
+                beginScanningOperation()
+            } else {
+                // Possibility 3: We have no permission to scan the collection. So ask for it. (If granted, the app will restart)
+                beginNoPermissionOperation()
+            }
+        }
+    }
+
+    private fun beginNormalOperation() {
         btsl = BluetoothModalController(this, contentView)
 
         if (isModal) {
             btsl.activate()
         } else {
-            btsl.deactivate()
+//            btsl.deactivate()
         }
 
-        // Initialize the helper UI fragments
-        playerUI = PlayerFragment()
-        libraryUI = LibraryFragment()
-
-        // Set up the pager that allows swiping between the UI fragments
-        viewPager = binding.viewPager
-        viewPager.adapter = object: FragmentStateAdapter(this) {
-            override fun createFragment(position: Int): Fragment {
-                return when (position) {
-                    0 -> extrasUI
-                    1 -> playerUI
-                    else -> libraryUI
-                }
-            }
-            override fun getItemCount() = 3
-        }
+        viewPager.adapter = NormalModeAdapter(this)
         viewPager.currentItem = 1
+
+        loadSavedState()
+
+        UIConnector.get().requestConnection(this, this)
     }
 
-    override fun onStart() {
-        super.onStart()
+    private fun beginNoPermissionOperation() {
+        noPermissionUI.connect(this)
+        viewPager.adapter = SimpleAdapter(this, noPermissionUI)
+    }
+
+    private fun beginScanningOperation() {
+
+        viewPager.adapter = SimpleAdapter(this, scanningUI)
+
+        // The scan will begin automatically once the connection is made
         UIConnector.get().requestConnection(this, this)
+
+        runInBackground(this, {doScan()}, {onScanComplete()})
+    }
+
+    // This function must not be run on the main UI thread
+    private fun doScan() {
+        val database = Room.databaseBuilder(applicationContext, Database::class.java, "mcotp-database").build()
+        val scanner = Scanner(applicationContext, database)
+        scanner.fullScan()
+        val stateFile = File(applicationContext.filesDir, "DB_INITIALIZED")
+        stateFile.writeText("Completed", StandardCharsets.UTF_8)
+    }
+
+    private fun onScanComplete() {
+        beginNormalOperation()
+    }
+
+    private fun isDatabaseInitialized(): Boolean {
+        val stateFile = File(applicationContext.filesDir, "DB_INITIALIZED")
+        return stateFile.isFile
     }
 
     override fun onStop() {

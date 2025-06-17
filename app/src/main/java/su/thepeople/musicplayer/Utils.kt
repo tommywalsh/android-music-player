@@ -9,6 +9,8 @@ import androidx.media3.common.MediaMetadata
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 fun <T> successCallback(task: (T)->Unit): FutureCallback<T> {
@@ -26,6 +28,25 @@ fun <T> ListenableFuture<T>.onSuccess(context: Context, callback: (T) -> Unit) {
     Futures.addCallback(this, successCallback(callback), ContextCompat.getMainExecutor(context))
 }
 
+fun jsonArrayToStringList(arr: JSONArray): List<String> {
+    return (0 until arr.length()).asSequence().map{arr.getString(it)}.toList()
+}
+
+fun getStringArrayProp(obj: JSONObject, propName: String): List<String> {
+    if (obj.has(propName)) {
+        try {
+            val rawProp = obj.get(propName)
+            if (rawProp is JSONArray) {
+                return jsonArrayToStringList(rawProp)
+            } else if (rawProp is String) {
+                return listOf(rawProp)
+            }
+        } catch (ex: JSONException) {
+            // Just fall through and return nothing
+        }
+    }
+    return listOf()
+}
 
 fun songMediaItemToJSON(mi: MediaItem): JSONObject {
     val json = JSONObject()

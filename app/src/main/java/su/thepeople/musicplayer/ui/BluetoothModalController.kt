@@ -23,6 +23,7 @@ import androidx.core.view.WindowInsetsCompat
 class BluetoothModalController(private val ui: Activity, private val view: View) : BroadcastReceiver() {
     private val rawScreenLocker = ScreenLocker(ui)
     private var wantToBeLocked = false
+    private var wasRegistered = false
 
     override fun onReceive(context: Context, intent: Intent) {
         // Force screen on when bluetooth connects, but don't force anything when bluetooth is off
@@ -69,6 +70,7 @@ class BluetoothModalController(private val ui: Activity, private val view: View)
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         ui.registerReceiver(this, filter)
+        wasRegistered = true
 
         // Bluetooth may already be connected by the time we get here. If so, lock screen now.
         if (isBluetoothAlreadyConnected()) {
@@ -77,7 +79,9 @@ class BluetoothModalController(private val ui: Activity, private val view: View)
     }
 
     fun deactivate() {
-        ui.unregisterReceiver(this)
+        if (wasRegistered) {
+            ui.unregisterReceiver(this)
+        }
         leaveModalFocus()
     }
 

@@ -1,3 +1,6 @@
+
+Screen lock might be broken now due to permission changes?
+
 Song provider is kinda a mess
  - hard-coded strings for sub modes, used both in displays and in program logic
  - band sequential always repeats first song
@@ -11,18 +14,7 @@ Data reported to bluetooth controller should come from MCotP, and should not use
 ---
 - Maybe restore former song playtime after restart?
 - Improve look and feel of library, perhaps by using buttons instead of labels?
-- Can we move special permissions into build variant subdirectories (so normal app doesn't need to declare bluetooth and lock permissions)
 ---
-
-IMPROVE BEHAVIOR AT INITIAL STARTUP!
-  - Currently UI freezes as DB is scanned
-  - Required steps to get this to work:
-     1) If updating from an older app ID or database version, must delete old app
-     2) Install, but do not run new app  (alternatively: run app, then force stop it, then clear its data)
-     3) Allow all permissions on app
-     4) Start app. It will not show anything useful.  Wait at least 3 minutes, or watch app log in Android Studio
-     5) Restart app, or select a band from library view.
-     6) App should work from now on.
 
 ---
 Cleanup opportunities:

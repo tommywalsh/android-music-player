@@ -23,6 +23,9 @@ interface BandDao {
     @Query("SELECT * from band WHERE id = :id")
     fun get(id: Long): Band
 
+    @Query("SELECT * from band WHERE id in (:ids)")
+    fun get(ids: List<Long>): List<Band>
+
     @Query("SELECT * from band LIMIT 1")
     fun getAny(): List<Band>
 
@@ -40,4 +43,10 @@ interface BandDao {
 
     @Query("DELETE FROM band WHERE id = :bandId")
     fun delete(bandId: Long)
+
+    @Query("SELECT bandId FROM BandLocationCrossRef WHERE locationId in (:locationIds)")
+    fun getBandIdsFromLocations(locationIds: List<Long>): List<Long>
+
+    @Query("SELECT bandId FROM BandLocationCrossRef WHERE locationId = :locationId")
+    fun getBandIdsFromSpecificLocation(locationId: Long): List<Long>
 }

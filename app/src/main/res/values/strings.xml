@@ -3,6 +3,10 @@
 
     <!-- strings actually used statically in UI -->
     <string name="breadcrumb_separator">/</string>
+    <string name="no_permissions">This app needs permission to scan the music collection</string>
+    <string name="grant_permissions">Grant permission</string>
+    <string name="no_database">The app is waiting for a scan of the music collection to complete</string>
+
 
     <!-- placeholder text, replaced at runtime -->
     <string name="ph_band">Band Name</string>

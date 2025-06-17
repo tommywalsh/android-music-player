@@ -53,8 +53,6 @@ class McotpService : MediaLibraryService() {
         librarySession = McotpLibrarySession(applicationContext, customPlayer)
         mediaSession = MediaLibrarySession.Builder(this, customPlayer.playerAPIHandler, librarySession).setId("mcotp").build()
 
-        startBackgroundScan()
-
         registerReceiver(silencer, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
     }
 
@@ -84,16 +82,4 @@ class McotpService : MediaLibraryService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = mediaSession
-
-    /**
-     * This kicks off a full scan of the disk, if necessary. The scan is a long-running operation that is run asynchronously.
-     */
-    private fun startBackgroundScan() {
-        if (!database.isScanned()) {
-            val scanner = Scanner(applicationContext, database)
-            database.async {
-                scanner.fullScan()
-            }
-        }
-    }
 }

@@ -25,14 +25,18 @@ import su.thepeople.musicplayer.data.BAND_PREFIX
 import su.thepeople.musicplayer.data.DECADE_PREFIX
 import su.thepeople.musicplayer.data.Database
 import su.thepeople.musicplayer.data.GROUP_PREFIX
+import su.thepeople.musicplayer.data.LOCATION_PREFIX
+import su.thepeople.musicplayer.data.Location
 import su.thepeople.musicplayer.data.SONG_PREFIX
 import su.thepeople.musicplayer.data.internalIntId
+import su.thepeople.musicplayer.data.internalLongId
 import su.thepeople.musicplayer.data.internalStringId
 
 const val ROOT_ID = "root"
 const val BANDS_ID = "root:bands"
 const val GROUPED_BANDS_ID = "root:grouped_bands"
 const val YEARS_ID = "root:years"
+const val LOCATIONS_ID = "root:locations"
 
 /**
  * This class represents a "MediaLibrarySession.Callback". Despite that name, this class serves as a navigation API.  All bands/albums/songs are
@@ -110,6 +114,17 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             .build())
         .build()
 
+    private val locationsItem = MediaItem.Builder()
+        .setMediaId(LOCATIONS_ID)
+        .setMediaMetadata(MediaMetadata.Builder()
+            .setMediaType(MEDIA_TYPE_MUSIC)
+            .setDisplayTitle("Locations")
+            .setTitle("Locations")
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .build())
+        .build()
+
     @OptIn(UnstableApi::class)
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): ConnectionResult {
         // TODO: Audit these default commands and see if they really all apply
@@ -117,6 +132,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             .add(SessionCommand("band", Bundle.EMPTY))
             .add(SessionCommand("album", Bundle.EMPTY))
             .add(SessionCommand("year", Bundle.EMPTY))
+            .add(SessionCommand("location", Bundle.EMPTY))
             .add(SessionCommand("submode", Bundle.EMPTY))
             .add(SessionCommand("play-item", Bundle.EMPTY))
             .build()
@@ -154,6 +170,9 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             }
             mediaId == YEARS_ID -> {
                 Futures.immediateFuture(LibraryResult.ofItem(yearsItem, null))
+            }
+            mediaId == LOCATIONS_ID -> {
+                Futures.immediateFuture(LibraryResult.ofItem(locationsItem, null))
             }
             mediaId.startsWith(DECADE_PREFIX) -> {
                 Futures.immediateFuture(LibraryResult.ofItem(decadeItem(internalIntId(mediaId)), null))
@@ -231,6 +250,65 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
             .build()
     }
 
+    private fun getLocationChildren(locationId: Long): List<MediaItem> {
+        val (l, b) = getDisplaySubLocationsAndBands(locationId)
+        return l + b
+    }
+
+    private fun getTopLevelLocations(): List<MediaItem> {
+        return getDisplaySubLocationsAndBands(null).first
+    }
+
+    private fun getDisplaySubLocationsAndBands(locationId: Long?): Pair<List<MediaItem>, List<MediaItem>> {
+        /*
+         * There are two types of children for each location
+         *   - Other locations ("sublocations")
+         *   - Bands
+         *
+         * A sublocation is only shown under two conditions:
+         *   1) There are at least two bands from that location
+         *   2) There is at least one other sublocation with at least two bands
+         * If a sublocation does not meet both of these criteria, then bands from that sublocation
+         * (or any sub-sublocation) are "hoisted" up and shows directly as children of the parent.
+         */
+
+        // We'll collect band and location IDs as we go
+        data class LocationWithBands(val location: Location, val bandIds: List<Long>)
+        val bandIds = ArrayList<Long>()
+        val displayLocationsWithBands = ArrayList<LocationWithBands>()
+
+        // Generate two sublocation lists: those with only 1 band, and those with more than 1 band
+        val allSublocations = if (locationId == null) {
+            database.locationDao().getTopLevelLocations()
+        } else {
+            database.locationDao().getImmediateChildren(locationId)
+        }
+
+        val sublocBandList = allSublocations.map { thisSublocation ->
+            val descendantLocationIds = database.locationDao().getAllDescendentIds(thisSublocation.id)
+            LocationWithBands(thisSublocation, database.bandDao().getBandIdsFromLocations(descendantLocationIds))
+        }
+        val (full, empty) = sublocBandList.partition { it.bandIds.size > 1 }
+
+        // Decide on bands and sublocations to display
+        if (full.size < 2) {
+            // Don't display any sublocations!
+            bandIds.addAll(full.flatMap{it.bandIds})
+            bandIds.addAll(empty.flatMap{it.bandIds})
+        } else {
+            displayLocationsWithBands.addAll(full)
+            bandIds.addAll(empty.flatMap{it.bandIds})
+        }
+
+        // Don't forget about any bands from this particular location (not in any sublocation)
+        locationId?.let{bandIds.addAll(database.bandDao().getBandIdsFromSpecificLocation(it))}
+
+        // Finally, create media items for everything
+        val locationItems = displayLocationsWithBands.sortedBy{it.location.name}.map{database.mediaItem(it.location, "${it.location.name} (${it.bandIds.size})")}
+        val bandItems = database.bandDao().get(bandIds).sortedBy{it.name}.map{database.mediaItem(it)}
+        return Pair(locationItems, bandItems)
+    }
+
     override fun onGetChildren(
         session: MediaLibraryService.MediaLibrarySession,
         controller: MediaSession.ControllerInfo,
@@ -241,7 +319,7 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
         Log.d("Library", "Servicing request to get children")
         val result = when {
             parentId == ROOT_ID -> {
-                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem, groupedBandsItem, yearsItem), null))
+                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(bandsItem, groupedBandsItem, yearsItem, locationsItem), null))
             }
             parentId == BANDS_ID -> {
                 return database.async {
@@ -264,11 +342,23 @@ class McotpLibrarySession(val context: Context, private val player: CustomPlayer
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
                 }
             }
+            parentId == LOCATIONS_ID -> {
+                return database.async {
+                    LibraryResult.ofItemList(getTopLevelLocations(), null)
+                }
+            }
             parentId.startsWith(DECADE_PREFIX) -> {
                 return database.async {
                     val years = database.songDao().getYearsForDecade(internalIntId(parentId))
                     val items = years.map(::yearItem)
                     LibraryResult.ofItemList(ImmutableList.copyOf(items), null)
+                }
+            }
+            parentId.startsWith(LOCATION_PREFIX) -> {
+                return database.async {
+                    val locationId = internalLongId(parentId)
+                    val children = getLocationChildren(locationId)
+                    LibraryResult.ofItemList(ImmutableList.copyOf(children), null)
                 }
             }
             parentId.startsWith(GROUP_PREFIX) -> {

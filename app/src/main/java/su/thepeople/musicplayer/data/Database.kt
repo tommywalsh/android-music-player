@@ -24,12 +24,13 @@ const val NEW_OBJ_ID = 0L
 /**
  * Database holding information about the Music Collection of the People
  */
-@Database(entities = [Band::class, Album::class, Song::class], version = 1)
+@Database(entities = [Band::class, Album::class, Song::class, Location::class, BandLocationCrossRef::class], version = 1)
 abstract class Database : RoomDatabase() {
     private var executor = Executors.newSingleThreadExecutor()
     abstract fun bandDao(): BandDao
     abstract fun albumDao(): AlbumDao
     abstract fun songDao(): SongDao
+    abstract fun locationDao(): LocationDao
 
     fun <T> async (task: ()->T): ListenableFuture<T> {
         return Futures.submit(Callable{
@@ -82,6 +83,19 @@ abstract class Database : RoomDatabase() {
             .build()
     }
 
+    fun mediaItem(location: Location, customTitle: String? = null): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setIsBrowsable(true)
+            .setIsPlayable(true)
+            .setTitle(customTitle ?: location.name)
+            .setDisplayTitle(customTitle ?: location.name)
+            .build()
+        return MediaItem.Builder()
+            .setMediaId(location.externalId())
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
     fun mediaItem(song: Song): MediaItem {
         val band = bandDao().get(song.bandId)
         val builder = MediaMetadata.Builder()
@@ -105,11 +119,5 @@ abstract class Database : RoomDatabase() {
             .setMediaMetadata(builder.build())
             .setUri(song.path)
             .build()
-    }
-
-    // This must be a fast query as it is intended to be run on the main thread
-    fun isScanned(): Boolean {
-        val maybeBands = async {bandDao().getAny()}.get()
-        return maybeBands.isNotEmpty()
     }
 }

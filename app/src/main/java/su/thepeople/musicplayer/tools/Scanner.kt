@@ -1,13 +1,18 @@
-package su.thepeople.musicplayer.backend
+package su.thepeople.musicplayer.tools
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONObject
 import su.thepeople.musicplayer.data.Album
 import su.thepeople.musicplayer.data.Band
+import su.thepeople.musicplayer.data.BandLocationCrossRef
 import su.thepeople.musicplayer.data.Database
+import su.thepeople.musicplayer.data.Location
 import su.thepeople.musicplayer.data.NEW_OBJ_ID
 import su.thepeople.musicplayer.data.Song
+import su.thepeople.musicplayer.getStringArrayProp
 import java.io.File
+import java.nio.charset.StandardCharsets
 
 val ALBUM_REGEX = Regex("^((\\d\\d\\d\\d).? - )(.+)$")
 val LOOSE_SONG_REGEX = Regex("^((\\d\\d\\d\\d).? - )(.+)\\.[^.]+$")
@@ -67,6 +72,40 @@ class Scanner(private val context: Context, private val database: Database) {
         return candidate.isFile &&
                 !candidate.name.startsWith("[") &&
                 candidate.extension != "json"
+    }
+
+    private fun isMetadataFile(candidate: File): Boolean {
+        return candidate.isFile && candidate.name == "metadata.json"
+    }
+
+    private fun readMetadataFromFile(file: File): JSONObject? {
+        return if (file.isFile) {
+            JSONObject(file.readText(StandardCharsets.UTF_8))
+        } else {
+            null
+        }
+    }
+
+    private fun processMetadataForBand(bandId: Long, metadata: JSONObject) {
+        val locations = getStringArrayProp(metadata, "location")
+        locations.forEach {
+            val locationTrail = it.split("/")
+            var priorLocationId: Long? = null
+            locationTrail.forEach{ thisLocation ->
+                val existingId = database.locationDao().getId(thisLocation, priorLocationId)
+                if (existingId == null) {
+                    val loc = Location(NEW_OBJ_ID, thisLocation, priorLocationId)
+                    val newLocationId = database.locationDao().insert(loc)
+                    priorLocationId = newLocationId
+                } else {
+                    priorLocationId = existingId
+                }
+            }
+            priorLocationId?.let {
+                val xref = BandLocationCrossRef(bandId=bandId, locationId = it)
+                database.locationDao().addBandLocation(xref)
+            }
+        }
     }
 
     private fun scanAlbumSongs(albumDir: File, bandId: Long, album: Album, albumId: Long): Boolean {
@@ -130,7 +169,9 @@ class Scanner(private val context: Context, private val database: Database) {
         val bandId = database.bandDao().insert(band)
         var foundSong = false
         Log.d("Scanner", "Scanning band ${bandDir.name}")
+
         bandDir.listFiles()?.forEach { childObj ->
+            Log.d("Scanner", "Considering {$childObj.name}")
             if (isBandOrAlbumDir(childObj)) {
                 val foundAlbumSong = scanAlbumAndContents(childObj, bandId)
                 if (foundAlbumSong) {
@@ -141,6 +182,8 @@ class Scanner(private val context: Context, private val database: Database) {
                 scanLooseSong(childObj, bandId)
                 Log.d("Scanner", "Found loose song ${childObj.name}")
                 foundSong = true
+            } else if (isMetadataFile(childObj)) {
+                readMetadataFromFile(childObj)?.let{ processMetadataForBand(bandId, it) }
             }
         }
         if (!foundSong) {

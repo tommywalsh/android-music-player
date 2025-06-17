@@ -3,6 +3,7 @@ package su.thepeople.musicplayer.backend
 import android.util.Log
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ALBUM
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_FOLDER_MIXED
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MIXED
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_YEAR
 import org.json.JSONObject
@@ -17,7 +18,8 @@ enum class ProviderClass {
     YEAR_SHUFFLE,
     ALBUM_SEQUENTIAL,
     DOUBLE_SHOT,
-    BLOCK_PARTY
+    BLOCK_PARTY,
+    LOCATION_SHUFFLE
 }
 abstract class SongProvider(initialSongId: Long? = null) {
 
@@ -52,6 +54,7 @@ abstract class SongProvider(initialSongId: Long? = null) {
                 ProviderClass.BAND_SHUFFLE.ordinal -> BandShuffleProvider.reconstruct(savedState)
                 ProviderClass.BAND_SEQUENTIAL.ordinal -> BandSequentialProvider.reconstruct(savedState)
                 ProviderClass.YEAR_SHUFFLE.ordinal -> YearRangeShuffleProvider.reconstruct(savedState)
+                ProviderClass.LOCATION_SHUFFLE.ordinal -> LocationShuffleProvider.reconstruct(savedState)
                 ProviderClass.BLOCK_PARTY.ordinal -> BlockPartyProvider()
                 ProviderClass.DOUBLE_SHOT.ordinal -> DoubleShotProvider()
                 ProviderClass.ALBUM_SEQUENTIAL.ordinal -> AlbumSequentialProvider.reconstruct(savedState)
@@ -227,6 +230,40 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
         }
     }
 }
+
+
+open class LocationShuffleProvider(private val locationId: Long, initialSongId: Long? = null): SongProvider(initialSongId) {
+    override val mode = MajorMode.LOCATION
+    override val mediaType = MEDIA_TYPE_FOLDER_MIXED
+    data class LookupData(val bandIds: List<Long>, val locationLabel: String)
+    private var lookupData: LookupData? = null
+
+    override fun getNextBatchImpl(database: Database): List<Song> {
+        if (lookupData == null) {
+            val locationIds = database.locationDao().getAllDescendentIds(locationId)
+            val bandIds = database.bandDao().getBandIdsFromLocations(locationIds)
+            val locString = database.locationDao().getFullLocationString(locationId)
+            lookupData = LookupData(bandIds, locString)
+        }
+        return database.songDao().getRandomSongsForBands(lookupData!!.bandIds, PREFERRED_BATCH_SIZE)
+    }
+
+    override val subTypeLabel: String
+        get() = lookupData?.locationLabel?:"Location Lock"
+
+    override fun getInternalState(): JSONObject {
+        return JSONObject()
+            .put("type", ProviderClass.LOCATION_SHUFFLE.ordinal)
+            .put("locationId", locationId)
+    }
+
+    companion object {
+        fun reconstruct(savedState: JSONObject): LocationShuffleProvider {
+            return LocationShuffleProvider(savedState.getLong("locationId"))
+        }
+    }
+}
+
 
 class DecadeShuffleProvider(startYear: Int): YearRangeShuffleProvider(startYear, startYear + 9)
 class YearShuffleProvider(year: Int): YearRangeShuffleProvider(year, year)

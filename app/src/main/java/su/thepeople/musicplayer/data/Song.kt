@@ -54,6 +54,9 @@ interface SongDao {
     @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT 1")
     fun getRandomSongForBand(bandId: Long): Song
 
+    @Query("SELECT * from song WHERE bandId IN (:bandIds) ORDER BY random() LIMIT :limit")
+    fun getRandomSongsForBands(bandIds: List<Long>, limit: Int): List<Song>
+
     @Query("SELECT * from song WHERE albumId = :albumId ORDER BY random() LIMIT 1")
     fun getRandomSongForAlbum(albumId: Long): Song
 

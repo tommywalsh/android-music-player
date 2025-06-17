@@ -23,7 +23,8 @@ enum class MajorMode {
     COLLECTION,
     BAND,
     ALBUM,
-    YEAR
+    YEAR,
+    LOCATION
 }
 
 /**
@@ -94,6 +95,11 @@ class CustomPlayer(private val database: Database, private val context: Context,
             androidPlayer.playlistMetadata = MediaMetadata.Builder().setMediaType(MEDIA_TYPE_MIXED).build()
             swapProvider(ShuffleProvider(), playNow)
         } else {
+            androidPlayer.playlistMetadata = MediaMetadata.Builder()
+                .setMediaType(provider.mediaType)
+                .setTitle(provider.subTypeLabel)
+                .build()
+
             appendSongBatch(songs)
 
             // Clear out any stale songs from the front of the playlist that we've already played.
@@ -122,6 +128,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
 
     private fun swapProvider(newProvider: SongProvider, switchNow: Boolean) {
         provider = newProvider
+
         androidPlayer.playlistMetadata = MediaMetadata.Builder()
             .setMediaType(provider.mediaType)
             .setTitle(provider.subTypeLabel)
@@ -244,6 +251,9 @@ class CustomPlayer(private val database: Database, private val context: Context,
             }
             "year" -> {
                 swapProvider(YearShuffleProvider(id), true)
+            }
+            "location" -> {
+                swapProvider(LocationShuffleProvider(id.toLong()), true)
             }
             "song" -> {
                 database.async {
