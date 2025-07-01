@@ -67,7 +67,7 @@ class CustomPlayer(private val database: Database, private val context: Context,
                 val currentSongJSON = previousState.getJSONObject("currentItem")
                 val currentMediaItem = songMediaItemFromJSON(currentSongJSON)
                 androidPlayer.setMediaItem(currentMediaItem)
-                mediaItems.add(currentMediaItem)
+                // mediaItems.add(currentMediaItem)
             }
 
             val futureSongJSONs = previousState.getJSONArray("futureItems")
