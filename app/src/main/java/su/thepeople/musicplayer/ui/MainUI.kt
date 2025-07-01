@@ -1,5 +1,7 @@
 package su.thepeople.musicplayer.ui
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.view.View
@@ -120,9 +122,9 @@ class MainUI : FragmentActivity() {
             // Possibility 1: We've already scanned the music collection, and therefore we can begin normal operation immediately
             beginNormalOperation()
         } else {
-            // We have to be a "manager" in order to read a JSON file from the SD card!
-            if (Environment.isExternalStorageManager()) {
-                // Possibility 2: We have not scanned the collection yet, but we do have permission to do so.
+            // In Version R and above, we have to be a "manager" in order to read a JSON file from the SD card.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {
+                // Possibility 2: We have not scanned the collection yet, but we do have permission to do so, so do it now.
                 beginScanningOperation()
             } else {
                 // Possibility 3: We have no permission to scan the collection. So ask for it. (If granted, the app will restart)
@@ -158,7 +160,7 @@ class MainUI : FragmentActivity() {
         viewPager.adapter = SimpleAdapter(this, scanningUI)
 
         // The scan will begin automatically once the connection is made
-        UIConnector.get().requestConnection(this, this)
+        // UIConnector.get().requestConnection(this, this)
 
         runInBackground(this, {doScan()}, {onScanComplete()})
     }
@@ -198,5 +200,16 @@ class MainUI : FragmentActivity() {
     fun navigateTo(parentIds: List<String>, childId: String) {
         viewPager.currentItem = 1
         libraryUI.navigateTo(LibraryNavigationRequest(parentIds, childId))
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 666 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            btsl.registerForBluetoothNotificationsNow()
+        }
     }
 }

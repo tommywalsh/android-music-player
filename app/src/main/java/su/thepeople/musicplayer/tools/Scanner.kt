@@ -195,7 +195,8 @@ class Scanner(private val context: Context, private val database: Database) {
     fun fullScan() {
         // TODO: Use non-deprecated API for accessing MCotP
         val mcotp = findMcotp(context.externalMediaDirs)
-        mcotp?.listFiles()?.forEach { childObj ->
+        val subfiles = mcotp?.listFiles()
+            subfiles?.forEach { childObj ->
             if (isBandOrAlbumDir(childObj)) {
                 scanBandAndContents(childObj)
             }

@@ -1,48 +1,33 @@
 package su.thepeople.musicplayer.ui
 
-import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Context
-import android.os.PowerManager
+import android.view.WindowManager
 
 /**
  * This class handles all the work associated with forcing the screen to stay on and allowing the
  * screen to shut off.
  *
- * This class uses a couple of deprecated and warned-against techniques:
- *  - FULL_WAKE_LOCK is deprecated, as they'd like you to use Window flags instead. But, I could
- *     not find a way to make window flags give the desired behavior of forcing the screen on in
- *     response to a bluetooth event. I think this is by design, as ordinarily this would not be
- *     desired behavior on a normal phone app. But, this is not meant to be a well-behaved phone
- *     app, so we use the old deprecated flag instead.
- *  - It's recommended to use a timeout when acquiring a wake lock so as not to drain a user's
- *     battery for long operations. But, we really do want the screen to stay on "forever" (until
- *     the user explicitly decides to shut it off)
+ * Note that this is NOT "turn on the screen" and "turn off the screen".  We only:
+ *   - Force an already-on screen to stay on
+ *   - Allow an already-on screen to turn off, if the system decides to do so
  */
 
-@Suppress("DEPRECATION")
 class ScreenLocker(ui: Activity) {
 
-    private val wakeLock: PowerManager.WakeLock
     private var isLocked: Boolean = false
+    private var window = ui.window
 
-    init {
-        val powerServiceAny = ui.getSystemService(Context.POWER_SERVICE)
-        val powerManager = powerServiceAny as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.FULL_WAKE_LOCK, "musicplayer:wakelock")
-    }
-
-    @SuppressLint("WakelockTimeout")
     fun ensureScreenOn() {
         if (!isLocked) {
-            wakeLock.acquire()
+            //wakeLock.acquire()
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             isLocked = true
         }
     }
 
     fun allowScreenToShutOff() {
         if (isLocked) {
-            wakeLock.release()
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             isLocked = false
         }
     }

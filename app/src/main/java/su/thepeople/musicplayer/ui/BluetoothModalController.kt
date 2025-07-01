@@ -3,15 +3,19 @@ package su.thepeople.musicplayer.ui
 import android.Manifest
 import android.app.Activity
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo.TYPE_BLE_BROADCAST
+import android.media.AudioDeviceInfo.TYPE_BLE_HEADSET
+import android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+import android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+import android.media.AudioManager
+import android.os.Build
 import android.view.View
-import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -54,23 +58,49 @@ class BluetoothModalController(private val ui: Activity, private val view: View)
     }
 
     private fun isBluetoothAlreadyConnected(): Boolean {
-        if (ActivityCompat.checkSelfPermission(ui, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-            val service = ui.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            service?.let {
-                if (it.adapter.bondedDevices.isNotEmpty()) {
-                    return true
+
+        val audioManager = ui.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioManager?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                it.communicationDevice?.let { device ->
+                    return when (device.type) {
+                        TYPE_BLE_BROADCAST, TYPE_BLE_HEADSET, TYPE_BLUETOOTH_A2DP, TYPE_BLUETOOTH_SCO -> true
+                        else -> false
+                    }
                 }
+            } else {
+                @Suppress("DEPRECATION")
+                return it.isBluetoothScoOn || it.isBluetoothA2dpOn
             }
         }
         return false
     }
 
-    fun activate() {
+    fun registerForBluetoothNotificationsNow() {
         val filter =  IntentFilter()
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         ui.registerReceiver(this, filter)
         wasRegistered = true
+    }
+
+    private fun registerForBluetoothNotificationsIfAllowed() {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // In S and later, this is a "runtime permission", so we might have to explicitly ask the user
+            if (ui.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                ui.requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 666)
+            } else {
+                registerForBluetoothNotificationsNow()
+            }
+        } else {
+            // On versions before S, we will always have this permission since the user agreed at install-time
+            registerForBluetoothNotificationsNow()
+        }
+    }
+
+    fun activate() {
+        registerForBluetoothNotificationsIfAllowed()
 
         // Bluetooth may already be connected by the time we get here. If so, lock screen now.
         if (isBluetoothAlreadyConnected()) {

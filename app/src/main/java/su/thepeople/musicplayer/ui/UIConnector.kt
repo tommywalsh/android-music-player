@@ -41,8 +41,8 @@ class UIConnector private constructor() {
             Log.d("Main Activity", "Making new backend connection in onStart")
             val sessionToken = SessionToken(context, ComponentName(context, McotpService::class.java))
             val future = MediaBrowser.Builder(context, sessionToken).buildAsync()
-            future.addListener({onBackendConnectionFinalized()}, ContextCompat.getMainExecutor(context))
             pendingConnectionFuture = future
+            future.addListener({onBackendConnectionFinalized()}, ContextCompat.getMainExecutor(context))
         }
     }
 
