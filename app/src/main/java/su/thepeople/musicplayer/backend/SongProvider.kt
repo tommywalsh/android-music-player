@@ -121,7 +121,7 @@ class ShuffleProvider: SongProvider() {
     }
 }
 
-class BandShuffleProvider(private val bandId: Long, forcedStartSongId: Long? = null): SongProvider(forcedStartSongId) {
+class BandShuffleProvider(private val bandId: Long): SongProvider() {
     override val mode = MajorMode.BAND
     override val mediaType = MEDIA_TYPE_ARTIST
 
@@ -142,7 +142,7 @@ class BandShuffleProvider(private val bandId: Long, forcedStartSongId: Long? = n
     }
 }
 
-class BandSequentialProvider(private val bandId: Long, private val forcedStartSongId: Long? = null): SongProvider(forcedStartSongId) {
+class BandSequentialProvider(private val bandId: Long, private val forcedStartSongId: Long? = null): SongProvider() {
     override val mode = MajorMode.BAND
     override val mediaType = MEDIA_TYPE_ARTIST
 
@@ -210,7 +210,7 @@ class BandSequentialProvider(private val bandId: Long, private val forcedStartSo
 
 }
 
-open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int, initialSongId: Long? = null): SongProvider(initialSongId) {
+open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int): SongProvider() {
     override val mode = MajorMode.YEAR
     override val mediaType = MEDIA_TYPE_YEAR
     override fun getNextBatchImpl(database: Database): List<Song> {
@@ -232,7 +232,7 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
 }
 
 
-open class LocationShuffleProvider(private val locationId: Long, initialSongId: Long? = null): SongProvider(initialSongId) {
+open class LocationShuffleProvider(private val locationId: Long): SongProvider() {
     override val mode = MajorMode.LOCATION
     override val mediaType = MEDIA_TYPE_FOLDER_MIXED
     data class LookupData(val bandIds: List<Long>, val locationLabel: String)
@@ -268,8 +268,8 @@ open class LocationShuffleProvider(private val locationId: Long, initialSongId: 
 class DecadeShuffleProvider(startYear: Int): YearRangeShuffleProvider(startYear, startYear + 9)
 class YearShuffleProvider(year: Int): YearRangeShuffleProvider(year, year)
 
-class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null, replayCurrent: Boolean = false):
-    SongProvider(if (replayCurrent) currentSongId else null)
+class AlbumSequentialProvider(private val albumId: Long, private var currentSongId: Long? = null):
+    SongProvider()
 {
     override val mode = MajorMode.ALBUM
     override val mediaType = MEDIA_TYPE_ALBUM
@@ -336,7 +336,7 @@ class AlbumSequentialProvider(private val albumId: Long, private var currentSong
     }
 }
 
-class DoubleShotProvider(initialSongId: Long? = null): SongProvider(initialSongId) {
+class DoubleShotProvider: SongProvider() {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
     companion object {
@@ -358,7 +358,7 @@ class DoubleShotProvider(initialSongId: Long? = null): SongProvider(initialSongI
     }
 }
 
-class BlockPartyProvider(initialSongId: Long? = null): SongProvider(initialSongId) {
+class BlockPartyProvider: SongProvider() {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
     companion object {
