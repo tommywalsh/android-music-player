@@ -60,6 +60,8 @@ class MainUI : FragmentActivity() {
 
     var isModal: Boolean = false
         private set
+    var isWakeup: Boolean = false
+        private set
 
     fun setModalFocusMode(newModal: Boolean = true) {
         isModal = newModal
@@ -73,6 +75,11 @@ class MainUI : FragmentActivity() {
         }
     }
 
+    fun setWakeupMode(newWakeup: Boolean = true) {
+        isWakeup = newWakeup
+        // TODO: actually toggle wakeup mode
+    }
+
     fun onSongChange() {
         if (isModal and this::btsl.isInitialized) {
             btsl.renewScreenLock()
@@ -82,6 +89,7 @@ class MainUI : FragmentActivity() {
     private fun getInternalState(): JSONObject {
         val state = JSONObject()
         state.put("isModal", isModal)
+        state.put("isWakeup", isWakeup)
         return state
     }
 
@@ -90,6 +98,7 @@ class MainUI : FragmentActivity() {
         if (stateFile.isFile) {
             val savedState = JSONObject(stateFile.readText(StandardCharsets.UTF_8))
             setModalFocusMode(savedState.getBoolean("isModal"))
+            setWakeupMode(savedState.getBoolean("isWakeup"))
         }
     }
 

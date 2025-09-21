@@ -17,6 +17,7 @@ class ExtrasFragment (private val mainUI: MainUI): Fragment() {
     // UI-related objects are set up when view is created.
     private lateinit var binding: ExtrasUiBinding
     private lateinit var lockButton: TextView
+    private lateinit var wakeupButton: TextView
     private lateinit var buttonStyler: ButtonStyler
 
     /**
@@ -31,25 +32,33 @@ class ExtrasFragment (private val mainUI: MainUI): Fragment() {
         binding = ExtrasUiBinding.inflate(inflater, container, false)
         lockButton = binding.tempLockButton
         lockButton.setOnClickListener(toggleLock)
+        wakeupButton = binding.forceOnButton
+        wakeupButton.setOnClickListener(toggleWakeup)
         buttonStyler = ButtonStyler(mainUI)
         return binding.root
     }
 
-    private fun updateLockButton() {
+    private fun updateButtons() {
         if(mainUI.isModal) {
             buttonStyler.styleLocked(lockButton)
         } else {
             buttonStyler.styleUnlocked(lockButton)
         }
+        // TODO: wakeup mode
     }
 
     private val toggleLock: OnClick = {
         mainUI.setModalFocusMode(!mainUI.isModal)
-        updateLockButton()
+        updateButtons()
+    }
+
+    private val toggleWakeup: OnClick = {
+        mainUI.setWakeupMode(!mainUI.isWakeup)
+        updateButtons()
     }
 
     override fun onResume() {
         super.onResume()
-        updateLockButton()
+        updateButtons()
     }
 }

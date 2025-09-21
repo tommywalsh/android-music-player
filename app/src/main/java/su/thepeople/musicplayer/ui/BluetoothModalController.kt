@@ -46,6 +46,7 @@ class BluetoothModalController(private val ui: Activity, private val view: View)
         val insetController = WindowCompat.getInsetsController(ui.window, view)
         insetController.hide(WindowInsetsCompat.Type.systemBars())
         ui.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        ui.setTurnScreenOn(true)
         wantToBeLocked = true
     }
 
@@ -54,6 +55,7 @@ class BluetoothModalController(private val ui: Activity, private val view: View)
         insetController.show(WindowInsetsCompat.Type.systemBars())
         ui.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         rawScreenLocker.allowScreenToShutOff()
+        ui.setTurnScreenOn(false)
         wantToBeLocked = false
     }
 

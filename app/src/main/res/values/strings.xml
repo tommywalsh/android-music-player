@@ -20,5 +20,7 @@
     <string name="desc_play_button">Play</string>
     <string name="desc_forward_button">Forward</string>
     <string name="desc_lock_button">Lock</string>
+    <string name="fullscreen_mode">Fullscreen Mode</string>
+    <string name="auto_wakeup">Auto Wakeup</string>
 
 </resources>
