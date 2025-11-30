@@ -8,6 +8,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import java.net.URLEncoder
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
@@ -96,6 +97,19 @@ abstract class Database : RoomDatabase() {
             .build()
     }
 
+    private fun filePathAsURI(filepath: String): String {
+        /*
+            We have an on-disk file path, with any special characters appearing as-is.
+            The Android music player requires RFC-3986 URIs instead, w/ special characters escaped.
+            We don't want to add a new library dependency just to do this task, so we use the
+            Java-provided URLEncoder function. However, this actually produces "form data", not a
+            true RFC-3986-compliant URL. The only difference between the two is how space characters
+            are escaped ("form data" uses a plus sign). So, we need to fix that ourselves.
+         */
+        val formData = URLEncoder.encode(filepath, Charsets.UTF_8.name())
+        return formData.replace("+", "%20")
+    }
+
     fun mediaItem(song: Song): MediaItem {
         val band = bandDao().get(song.bandId)
         val builder = MediaMetadata.Builder()
@@ -117,7 +131,7 @@ abstract class Database : RoomDatabase() {
         return MediaItem.Builder()
             .setMediaId(song.externalId())
             .setMediaMetadata(builder.build())
-            .setUri(song.path)
+            .setUri(filePathAsURI(song.path))
             .build()
     }
 }

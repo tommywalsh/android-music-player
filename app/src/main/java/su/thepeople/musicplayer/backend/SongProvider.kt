@@ -26,7 +26,6 @@ abstract class SongProvider(initialSongId: Long? = null) {
     private var forcedSongId = initialSongId
 
     // Subclasses must implement this function.
-    // TODO: should there be a way for an implementation to signal that there are no more songs?
     protected abstract fun getNextBatchImpl(database: Database): List<Song>
 
     fun getNextBatch(database: Database): List<Song> {
