@@ -29,6 +29,7 @@ abstract class SongProvider(initialSongId: Long? = null) {
     protected abstract fun getNextBatchImpl(database: Database): List<Song>
 
     fun getNextBatch(database: Database): List<Song> {
+        // If we have a forced first song, then our first "batch" will be just that one song
         val batch = forcedSongId?.let {
             getSingleSong(database, it)
         }?: getNextBatchImpl(database)
@@ -65,7 +66,51 @@ abstract class SongProvider(initialSongId: Long? = null) {
 
 const val PREFERRED_BATCH_SIZE = 10
 
-class ShuffleProvider: SongProvider() {
+abstract class BaseShuffleProvider: SongProvider() {
+    // Subclasses must implement this function.
+    protected abstract fun getNextShuffleBatch(database:Database): List<Song>
+
+    private fun expandSongFollowingLinks(database: Database, firstSong: Song): List<Song> {
+        val songList = ArrayList<Song>()
+        songList.add(firstSong)
+        while (songList.last().followingSongId != null) {
+            songList.last().followingSongId?.let { nextId ->
+                database.songDao().get(nextId)?.let { nextSong ->
+                    songList.add(nextSong)
+                }
+            }
+        }
+        return songList
+    }
+
+
+    private fun insertLinkedSongs(database: Database, preList: List<Song>): List<Song> {
+        val postList = ArrayList<Song>()
+
+        // A dynamic list of songs that aren't allowed to be added at this point in the playlist
+        val excludeList = ArrayList<Long>();
+
+        for (thisSong in preList) {
+            // Only add this song if it's not in the exclude list.
+            if (!excludeList.contains(thisSong.id)) {
+                // Add this song, plus also any linked songs
+                val expandedList = expandSongFollowingLinks(database, thisSong)
+                postList.addAll(expandedList)
+
+                // Do not allow the next song to be the same as any song we just added
+                excludeList.clear()
+                excludeList.addAll(expandedList.map {song -> song.id})
+            }
+        }
+        return postList
+    }
+
+    override fun getNextBatchImpl(database: Database): List<Song> {
+        return insertLinkedSongs(database, getNextShuffleBatch(database))
+    }
+}
+
+class ShuffleProvider: BaseShuffleProvider() {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
 
@@ -92,7 +137,7 @@ class ShuffleProvider: SongProvider() {
         return database.songDao().getRandomSongForAlbum(album.id)
     }
 
-    override fun getNextBatchImpl(database: Database): List<Song> {
+    override fun getNextShuffleBatch(database: Database): List<Song> {
         return (0..PREFERRED_BATCH_SIZE).map {
             // Use unweighted strategy appx. twice as often as the other two
             when (Random.nextInt(0,4)) {
@@ -120,11 +165,11 @@ class ShuffleProvider: SongProvider() {
     }
 }
 
-class BandShuffleProvider(private val bandId: Long): SongProvider() {
+class BandShuffleProvider(private val bandId: Long): BaseShuffleProvider() {
     override val mode = MajorMode.BAND
     override val mediaType = MEDIA_TYPE_ARTIST
 
-    override fun getNextBatchImpl(database: Database): List<Song> {
+    override fun getNextShuffleBatch(database: Database): List<Song> {
         return database.songDao().getRandomSongsForBand(bandId, PREFERRED_BATCH_SIZE)
     }
 
@@ -209,10 +254,10 @@ class BandSequentialProvider(private val bandId: Long, private val forcedStartSo
 
 }
 
-open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int): SongProvider() {
+open class YearRangeShuffleProvider(private val startYear: Int, private val endYear: Int): BaseShuffleProvider() {
     override val mode = MajorMode.YEAR
     override val mediaType = MEDIA_TYPE_YEAR
-    override fun getNextBatchImpl(database: Database): List<Song> {
+    override fun getNextShuffleBatch(database: Database): List<Song> {
         return database.songDao().getSongsForYearRange(startYear, endYear, PREFERRED_BATCH_SIZE)
     }
 
@@ -231,13 +276,13 @@ open class YearRangeShuffleProvider(private val startYear: Int, private val endY
 }
 
 
-open class LocationShuffleProvider(private val locationId: Long): SongProvider() {
+open class LocationShuffleProvider(private val locationId: Long): BaseShuffleProvider() {
     override val mode = MajorMode.LOCATION
     override val mediaType = MEDIA_TYPE_FOLDER_MIXED
     data class LookupData(val bandIds: List<Long>, val locationLabel: String)
     private var lookupData: LookupData? = null
 
-    override fun getNextBatchImpl(database: Database): List<Song> {
+    override fun getNextShuffleBatch(database: Database): List<Song> {
         if (lookupData == null) {
             val locationIds = database.locationDao().getAllDescendentIds(locationId)
             val bandIds = database.bandDao().getBandIdsFromLocations(locationIds)
@@ -335,7 +380,7 @@ class AlbumSequentialProvider(private val albumId: Long, private var currentSong
     }
 }
 
-class DoubleShotProvider: SongProvider() {
+class DoubleShotProvider: BaseShuffleProvider() {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
     companion object {
@@ -345,7 +390,7 @@ class DoubleShotProvider: SongProvider() {
         get() {return subType }
 
 
-    override fun getNextBatchImpl(database: Database): List<Song> {
+    override fun getNextShuffleBatch(database: Database): List<Song> {
         val band = database.bandDao().getRandomBand()
         Log.d("SongProvider", "Requesting 2 songs for band ${band.id} ${band.name}")
         return database.songDao().getRandomSongsForBand(band.id, 2)
@@ -357,7 +402,7 @@ class DoubleShotProvider: SongProvider() {
     }
 }
 
-class BlockPartyProvider: SongProvider() {
+class BlockPartyProvider: BaseShuffleProvider() {
     override val mode = MajorMode.COLLECTION
     override val mediaType = MEDIA_TYPE_MIXED
     companion object {
@@ -387,7 +432,7 @@ class BlockPartyProvider: SongProvider() {
         return getAnyBlock(database)
     }
 
-    override fun getNextBatchImpl(database: Database): List<Song> {
+    override fun getNextShuffleBatch(database: Database): List<Song> {
         val songs = if (doBlockNext) {
             getFullBlock(database)
         } else {

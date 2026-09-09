@@ -126,10 +126,15 @@ class MainUI : FragmentActivity() {
     override fun onStart() {
         super.onStart()
 
+        // FOR DEBUGGING ONLY, we can run a new scan on every startup
+        //beginScanningOperation()
+        //return
+
         // We have three possible startup situations:
         if (isDatabaseInitialized()) {
             // Possibility 1: We've already scanned the music collection, and therefore we can begin normal operation immediately
             beginNormalOperation()
+
         } else {
             // In Version R and above, we have to be a "manager" in order to read a JSON file from the SD card.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {

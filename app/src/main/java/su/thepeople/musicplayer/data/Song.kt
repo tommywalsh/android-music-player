@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Update
 
 /**
  * Database class defining a song.  Note that each song is associated with exactly one band. The song may or may not be associated with an album.
@@ -24,7 +25,8 @@ data class Song(
     val bandId: Long,
     val year: String? = null,
     val albumId: Long? = null,
-    val albumTrackNum: Int? = null
+    val albumTrackNum: Int? = null,
+    var followingSongId: Long? = null
 )
 
 
@@ -74,4 +76,7 @@ interface SongDao {
 
     @Delete
     fun delete(song: Song)
+
+    @Update
+    fun update(song: Song)
 }

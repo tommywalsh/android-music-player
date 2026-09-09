@@ -71,16 +71,29 @@ class Scanner(private val context: Context, private val database: Database) {
     private fun isSongFile(candidate: File): Boolean {
         return candidate.isFile &&
                 !candidate.name.startsWith("[") &&
-                candidate.extension != "json"
+                candidate.extension != "json" &&
+                candidate.extension != "link"
     }
 
     private fun isMetadataFile(candidate: File): Boolean {
         return candidate.isFile && candidate.name == "metadata.json"
     }
 
+    private fun isLinkFile(candidate: File): Boolean {
+        return candidate.isFile && candidate.name.endsWith("forward.link")
+    }
+
     private fun readMetadataFromFile(file: File): JSONObject? {
         return if (file.isFile) {
             JSONObject(file.readText(StandardCharsets.UTF_8))
+        } else {
+            null
+        }
+    }
+
+    private fun readLinkFromFile(file: File): String? {
+        return if (file.isFile) {
+            file.readText(StandardCharsets.UTF_8)
         } else {
             null
         }
@@ -101,8 +114,8 @@ class Scanner(private val context: Context, private val database: Database) {
                     priorLocationId = existingId
                 }
             }
-            priorLocationId?.let {
-                val xref = BandLocationCrossRef(bandId=bandId, locationId = it)
+            priorLocationId?.let { lid ->
+                val xref = BandLocationCrossRef(bandId=bandId, locationId = lid)
                 database.locationDao().addBandLocation(xref)
             }
         }
@@ -112,12 +125,44 @@ class Scanner(private val context: Context, private val database: Database) {
         var foundSong = false
         Log.d("Scanner", "Scanning album ${album.name}")
 
-        albumDir.listFiles()?.forEach { songFile ->
-            if (isSongFile(songFile)) {
-                scanAlbumSong(songFile, bandId, album, albumId)
+        // Song filename (sans extension) to database ID
+        val fileToDB = HashMap<String, Long>()
+
+        // Store map of file-linked-from -> file-linked-to
+        val linksFound = HashMap<String, String>()
+
+        albumDir.listFiles()?.forEach { childObj ->
+            if (isSongFile(childObj)) {
+                val thisID = scanAlbumSong(childObj, bandId, album, albumId)
+                Log.d("Scanner", "Found album song ${childObj.name}")
                 foundSong = true
+                fileToDB[childObj.nameWithoutExtension] = thisID
+            } else if (isLinkFile(childObj)) {
+                readLinkFromFile(childObj)?.let {
+                    val linkFromKey = linknameBase(childObj.name)
+                    val linkToKey = it.substring(0, it.lastIndexOf("."))
+                    linksFound[linkFromKey] = linkToKey
+                    Log.d("Scanner", "Remembering link from $linkFromKey to $linkToKey, will process later")
+                }
+
             }
         }
+
+        /*
+            We could likely be slightly more "efficient" by doing this linking while the
+            objects are created. However, that would make the code more complex, and we will only
+            ever have a handful of links, so this technique is fine.
+         */
+        for (entry in linksFound) {
+            Log.d("Scanner", "Trying to process album song link ${entry.key} -> ${entry.value}...")
+            fileToDB[entry.key]?.let { fromId ->
+                fileToDB[entry.value]?.let { toId ->
+                    Log.d("Scanner", "...Adding album song link ${entry.key} -> ${entry.value}")
+                    addLinkToSong(fromId, toId)
+                }
+            }
+        }
+
         return foundSong
     }
 
@@ -140,7 +185,7 @@ class Scanner(private val context: Context, private val database: Database) {
         return foundSong
     }
 
-    private fun scanLooseSong(songFile: File, bandId: Long) {
+    private fun scanLooseSong(songFile: File, bandId: Long): Long {
         val matchResult = LOOSE_SONG_REGEX.matchEntire(songFile.name)
         val song: Song = if (matchResult != null) {
             val year = matchResult.groups[2]!!.value
@@ -149,10 +194,10 @@ class Scanner(private val context: Context, private val database: Database) {
         } else {
             Song(NEW_OBJ_ID, songFile.name.substringBeforeLast("."), songFile.absolutePath, bandId)
         }
-        database.songDao().insert(song)
+        return database.songDao().insert(song)
     }
 
-    private fun scanAlbumSong(songFile: File, bandId: Long, album: Album, albumId: Long) {
+    private fun scanAlbumSong(songFile: File, bandId: Long, album: Album, albumId: Long): Long {
         val matchResult = ALBUM_SONG_REGEX.matchEntire(songFile.name)
         val song: Song = if (matchResult != null) {
             val trackNum = matchResult.groups[2]!!.value
@@ -161,7 +206,17 @@ class Scanner(private val context: Context, private val database: Database) {
         } else {
             Song(NEW_OBJ_ID, songFile.name.substringBeforeLast("."), songFile.absolutePath, bandId, album.year, albumId)
         }
-        database.songDao().insert(song)
+        return database.songDao().insert(song)
+    }
+
+    private fun addLinkToSong(fromId: Long, toId: Long) {
+        val song = database.songDao().get(fromId)!!
+        song.followingSongId = toId
+        database.songDao().update(song)
+    }
+
+    private fun linknameBase(fullLinkname: String): String {
+        return fullLinkname.removeSuffix(".forward.link")
     }
 
     private fun scanBandAndContents(bandDir: File) {
@@ -169,6 +224,12 @@ class Scanner(private val context: Context, private val database: Database) {
         val bandId = database.bandDao().insert(band)
         var foundSong = false
         Log.d("Scanner", "Scanning band ${bandDir.name}")
+
+        // Song filename (sans extension) to database ID
+        val fileToDB = HashMap<String, Long>()
+
+        // Store map of file-linked-from -> file-linked-to
+        val linksFound = HashMap<String, String>()
 
         bandDir.listFiles()?.forEach { childObj ->
             Log.d("Scanner", "Considering {$childObj.name}")
@@ -179,16 +240,40 @@ class Scanner(private val context: Context, private val database: Database) {
                     foundSong = true
                 }
             } else if (isSongFile(childObj)) {
-                scanLooseSong(childObj, bandId)
+                val thisID = scanLooseSong(childObj, bandId)
                 Log.d("Scanner", "Found loose song ${childObj.name}")
                 foundSong = true
+                fileToDB[childObj.nameWithoutExtension] = thisID
             } else if (isMetadataFile(childObj)) {
                 readMetadataFromFile(childObj)?.let{ processMetadataForBand(bandId, it) }
+            } else if (isLinkFile(childObj)) {
+                readLinkFromFile(childObj)?.let {
+                    val linkFromKey = linknameBase(childObj.name)
+                    val linkToKey = it.replace("\\.[^\\.]+$", "")
+                    linksFound[linkFromKey] = linkToKey
+                    Log.d("Scanner", "Remembering link from $linkFromKey to $linkToKey")
+                }
             }
         }
         if (!foundSong) {
             Log.d("Scanner", "No songs found for $band.name, deleting")
             database.bandDao().delete(bandId)
+            return
+        }
+
+        /*
+          We could likely be slightly more "efficient" by doing this linking while the
+          objects are created. However, that would make the code more complex, and we will only
+          ever have a handful of links, so this technique is fine.
+         */
+        for (entry in linksFound) {
+            Log.d("Scanner", "Trying to process loose song link ${entry.key} ${entry.value}...")
+            fileToDB[entry.key]?.let { fromId ->
+                fileToDB[entry.value]?.let { toId ->
+                    Log.d("Scanner", "...Adding loose song link ${entry.key}...")
+                    addLinkToSong(fromId, toId)
+                }
+            }
         }
     }
 
@@ -196,7 +281,7 @@ class Scanner(private val context: Context, private val database: Database) {
         // TODO: Use non-deprecated API for accessing MCotP
         val mcotp = findMcotp(context.externalMediaDirs)
         val subfiles = mcotp?.listFiles()
-            subfiles?.forEach { childObj ->
+        subfiles?.forEach { childObj ->
             if (isBandOrAlbumDir(childObj)) {
                 scanBandAndContents(childObj)
             }
