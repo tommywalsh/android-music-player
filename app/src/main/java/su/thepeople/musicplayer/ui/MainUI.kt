@@ -18,6 +18,14 @@ import su.thepeople.musicplayer.tools.runInBackground
 import java.io.File
 import java.nio.charset.StandardCharsets
 
+/**
+ * Simple Database Versioning
+ *
+ * This version should be increased whenever a change is made to the database format. This will
+ * force a database update. We do not bother to do anything fancier: no migrations, no updating of
+ * existing database objects... we just throw away the whole database and do a full rescan.
+ */
+const val DB_VERSION = "1.0.002"
 
 class NormalModeAdapter(private val mainUI: MainUI): FragmentStateAdapter(mainUI) {
     override fun createFragment(position: Int): Fragment {
@@ -45,7 +53,8 @@ class SimpleAdapter(mainUI: MainUI, private val fragment: Fragment): FragmentSta
  * Full setup of the UI happens like this:
  *   1) in onCreate, UI objects are created, but are not yet functional
  *   2) in onStart, we kick off the background process of creating a connection to the backend
- *   3) All of the remaining UI and communication setup is done elsewhere (see UIConnector, and each of the component UIs for more)
+ *   3) All of the remaining UI and communication setup is done elsewhere (see UIConnector, and
+ *      each of the component UIs, for more)
  */
 class MainUI : FragmentActivity() {
 
@@ -127,8 +136,8 @@ class MainUI : FragmentActivity() {
         super.onStart()
 
         // FOR DEBUGGING ONLY, we can run a new scan on every startup
-        //beginScanningOperation()
-        //return
+        // beginScanningOperation()
+        // return
 
         // We have three possible startup situations:
         if (isDatabaseInitialized()) {
@@ -182,10 +191,11 @@ class MainUI : FragmentActivity() {
     // This function must not be run on the main UI thread
     private fun doScan() {
         val database = Room.databaseBuilder(applicationContext, Database::class.java, "mcotp-database").build()
+        database.clearAllTables()
         val scanner = Scanner(applicationContext, database)
         scanner.fullScan()
         val stateFile = File(applicationContext.filesDir, "DB_INITIALIZED")
-        stateFile.writeText("Completed", StandardCharsets.UTF_8)
+        stateFile.writeText(DB_VERSION, StandardCharsets.UTF_8)
     }
 
     private fun onScanComplete() {
@@ -194,7 +204,11 @@ class MainUI : FragmentActivity() {
 
     private fun isDatabaseInitialized(): Boolean {
         val stateFile = File(applicationContext.filesDir, "DB_INITIALIZED")
-        return stateFile.isFile
+        if (stateFile.isFile) {
+            val existingVersion = stateFile.readText(StandardCharsets.UTF_8).trim()
+            return existingVersion == DB_VERSION
+        }
+        return false
     }
 
     override fun onStop() {
