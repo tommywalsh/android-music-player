@@ -10,12 +10,6 @@ import androidx.room.Update
 
 /**
  * Database class defining a song.  Note that each song is associated with exactly one band. The song may or may not be associated with an album.
- *
- * Future directions:
- *   - The year of each song should be tracked. At first, probably album songs should be required to have the same year as albums... but a "loose"
- *     song would need to track its own year.
- *   - We need to model track numbers for songs on albums. The correct way to do that in a database is probably to introduce an additional database
- *     table to handle the cross-references. Each entry in the table would have (album_id, song_id, track_num).
  */
 @Entity
 data class Song(
@@ -26,7 +20,7 @@ data class Song(
     val year: String? = null,
     val albumId: Long? = null,
     val albumTrackNum: Int? = null,
-    var followingSongId: Long? = null
+    var followingSongId: Long? = null // If present, specifies a song that must always follow this song
 )
 
 
@@ -49,6 +43,10 @@ interface SongDao {
 
     @Query("SELECT * from song WHERE bandId = :bandId ORDER BY random() LIMIT :maxSongs")
     fun getRandomSongsForBand(bandId: Long, maxSongs: Int): List<Song>
+
+    // A "standalone" song is one that does not have a designated followup-song
+    @Query("SELECT * from song WHERE bandId = :bandId AND followingSongId IS NULL ORDER BY random() LIMIT :maxSongs")
+    fun getRandomStandaloneSongsForBand(bandId: Long, maxSongs: Int): List<Song>
 
     @Query("SELECT * from song WHERE bandId = :bandId ORDER BY year, albumId, albumTrackNum")
     fun getSequentialSongsForBand(bandId: Long): List<Song>

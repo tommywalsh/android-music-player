@@ -25,7 +25,7 @@ import java.nio.charset.StandardCharsets
  * force a database update. We do not bother to do anything fancier: no migrations, no updating of
  * existing database objects... we just throw away the whole database and do a full rescan.
  */
-const val DB_VERSION = "1.0.002"
+const val DB_VERSION = "1.0.005"
 
 class NormalModeAdapter(private val mainUI: MainUI): FragmentStateAdapter(mainUI) {
     override fun createFragment(position: Int): Fragment {

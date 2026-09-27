@@ -88,7 +88,7 @@ abstract class BaseShuffleProvider: SongProvider() {
         val postList = ArrayList<Song>()
 
         // A dynamic list of songs that aren't allowed to be added at this point in the playlist
-        val excludeList = ArrayList<Long>();
+        val excludeList = ArrayList<Long>()
 
         for (thisSong in preList) {
             // Only add this song if it's not in the exclude list.
@@ -376,55 +376,27 @@ class AlbumSequentialProvider(private val albumId: Long, private var currentSong
             provider.isCompleted = savedState.getBoolean("isCompleted")
             return provider
         }
-
     }
 }
 
-class DoubleShotProvider: BaseShuffleProvider() {
-    override val mode = MajorMode.COLLECTION
-    override val mediaType = MEDIA_TYPE_MIXED
-    companion object {
-        const val subType = "Double-Shot Weekend"
-    }
-    override val subTypeLabel: String
-        get() {return subType }
-
-
-    override fun getNextShuffleBatch(database: Database): List<Song> {
-        val band = database.bandDao().getRandomBand()
-        Log.d("SongProvider", "Requesting 2 songs for band ${band.id} ${band.name}")
-        return database.songDao().getRandomSongsForBand(band.id, 2)
-    }
-
-    override fun getInternalState(): JSONObject {
-        return JSONObject()
-            .put("type", ProviderClass.DOUBLE_SHOT.ordinal)
-    }
-}
-
-class BlockPartyProvider: BaseShuffleProvider() {
-    override val mode = MajorMode.COLLECTION
-    override val mediaType = MEDIA_TYPE_MIXED
-    companion object {
-        const val subType = "Block Party Weekend"
-        private const val blockSize = 5
-    }
-
-    override val subTypeLabel: String
-        get() {return subType }
+/**
+ * Helper class for a provider that plays a set number of songs from the same band, then
+ * (optionally) a set of random songs from any band.
+ */
+abstract class BandBlockProvider(private val blockLength: Int, private var breakLength: Int): BaseShuffleProvider() {
 
     private var doBlockNext = true
 
     private fun getAnyBlock(database:Database): List<Song> {
         val band = database.bandDao().getRandomBand()
-        return database.songDao().getRandomSongsForBand(band.id, blockSize)
+        return database.songDao().getRandomStandaloneSongsForBand(band.id, blockLength)
     }
 
     private fun getFullBlock(database: Database): List<Song> {
         // Try to find a band with enough songs to fill the block count, but only try a few times
-        for (i in 1..5) {
+        (1..20).forEach { _ ->
             val list = getAnyBlock(database)
-            if (list.size >= blockSize) {
+            if (list.size == blockLength) {
                 return list
             }
         }
@@ -436,11 +408,36 @@ class BlockPartyProvider: BaseShuffleProvider() {
         val songs = if (doBlockNext) {
             getFullBlock(database)
         } else {
-            database.songDao().getRandomSongs(blockSize)
+            database.songDao().getRandomSongs(blockLength)
         }
-        doBlockNext = !doBlockNext
+        doBlockNext = (breakLength == 0) || !doBlockNext
         return songs
     }
+}
+
+class DoubleShotProvider: BandBlockProvider(2, 0) {
+    override val mode = MajorMode.COLLECTION
+    override val mediaType = MEDIA_TYPE_MIXED
+    companion object {
+        const val subType = "Double-Shot Weekend"
+    }
+    override val subTypeLabel: String
+        get() { return subType }
+
+    override fun getInternalState(): JSONObject {
+        return JSONObject()
+            .put("type", ProviderClass.DOUBLE_SHOT.ordinal)
+    }
+}
+
+class BlockPartyProvider: BandBlockProvider(5, 5) {
+    override val mode = MajorMode.COLLECTION
+    override val mediaType = MEDIA_TYPE_MIXED
+
+    companion object {
+        const val subType = "Block Party Weekend"
+    }
+    override val subTypeLabel: String get() { return subType }
 
     override fun getInternalState(): JSONObject {
         return JSONObject()
